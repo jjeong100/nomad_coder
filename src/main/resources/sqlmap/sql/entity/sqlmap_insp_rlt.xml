@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mpo012">
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.InspRltVO">
+        INSERT INTO MPO012
+        (
+             FACTORY_CD
+            ,INSP_SEQ
+            ,WORKACT_SEQ
+            ,INSP_DAY_SEQ
+            ,INSP_TYPE_CD
+            ,INSP_SME_CD
+            ,INSP_ITEM_CD
+            ,MEASURE_VAL
+            ,INSP_RLT_CD
+            ,INSP_DT
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        ) VALUES (
+             #{factoryCd}
+            ,TABLE_SEQ_NEXTVAL('MPO012')
+            ,#{workactSeq}
+            ,#{inspDaySeq}
+            ,#{inspTypeCd}
+            ,#{inspSmeCd}
+            ,#{inspItemCd}
+            ,#{measureVal}
+            ,#{inspRltCd}
+            ,TO_CHAR(now(), 'YYYYMMDDHH24MISS')
+            ,'Y'
+            ,now()
+            ,#{writeId}
+            ,now()
+            ,#{updateId}
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.InspRltVO" resultType="org.rnt.com.entity.vo.InspRltVO">
+        SELECT
+             FACTORY_CD
+            ,INSP_SEQ
+            ,WORKACT_SEQ
+            ,INSP_DAY_SEQ
+            ,INSP_TYPE_CD
+            ,INSP_SME_CD
+            ,INSP_ITEM_CD
+            ,MEASURE_VAL
+            ,INSP_RLT_CD
+            ,INSP_DT
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        FROM MPO012 A
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND INSP_SEQ = #{inspSeq}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.InspRltVO">
+        UPDATE MPO012
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            <if test="workactSeq != null">,WORKACT_SEQ = #{workactSeq}</if>
+            <if test="inspTypeCd != null">,INSP_TYPE_CD = #{inspTypeCd}</if>
+            <if test="inspSmeCd != null">,INSP_SME_CD = #{inspSmeCd}</if>
+            <if test="inspItemCd != null">,INSP_ITEM_CD = #{inspItemCd}</if>
+            <if test="measureVal != null">,MEASURE_VAL = #{measureVal}</if>
+            <if test="inspRltCd != null">,INSP_RLT_CD = #{inspRltCd}</if>
+            <if test="inspDt != null">,INSP_DT = #{inspDt}</if>
+            <if test="useYn != null">,USE_YN = #{useYn}</if>
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND INSP_SEQ = #{inspSeq}
+
+    </update>
+
+    <update id="delete" parameterType="org.rnt.com.entity.vo.InspRltVO">
+        UPDATE MPO012
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            ,USE_YN = 'N'
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND INSP_SEQ   = #{inspSeq}
+    </update>
+
+     <update id="deleteAll" parameterType="org.rnt.com.entity.vo.InspRltVO">
+        DELETE FROM MPO012
+        WHERE 1=1
+          AND FACTORY_CD   = #{factoryCd}
+          AND WORKACT_SEQ  = #{workactSeq}
+          AND INSP_TYPE_CD = #{inspTypeCd}
+          AND INSP_SME_CD  = #{inspSmeCd}
+          AND INSP_DAY_SEQ  = #{inspDaySeq}
+    </update>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.InspRltVO" resultType="org.rnt.com.entity.vo.InspRltVO">
+        SELECT *
+        FROM (
+            SELECT A.WORKACT_SEQ
+			     , A.INSP_TYPE_CD
+			     , A.INSP_SME_CD
+			     , A.INSP_DAY_SEQ
+			     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'INSP_SME_CD' AND SCODE = A.INSP_SME_CD) AS INSP_SME_NM
+			     , MIN(A.INSP_DAY_SEQ) AS INSP_DAY_SEQ
+			     , TO_CHAR(TO_TIMESTAMP(MIN(A.INSP_DT),'YYYYMMDDHH24MISS'),'YYYY/MM/DD HH24:MI:SS') AS INSP_DT
+			     , MIN(A.INSP_RLT_CD) AS INSP_RLT_CD
+                 , ROW_NUMBER() OVER(ORDER BY A.WORKACT_SEQ, A.INSP_TYPE_CD, A.INSP_SME_CD, A.INSP_DAY_SEQ DESC) AS PAGE_RNUM
+			  FROM MPO012 A
+			 WHERE 1=1
+			   AND A.USE_YN = 'Y'
+			   AND A.WORKACT_SEQ = #{searchWorkactSeq}
+			   AND A.INSP_TYPE_CD = #{searchInspTypeCd}
+			   <if test="searchInspSmeCd != null and searchInspSmeCd != ''">
+			   AND A.INSP_SME_CD = #{searchInspSmeCd}
+			   </if>
+			 GROUP BY A.WORKACT_SEQ, A.INSP_TYPE_CD, A.INSP_SME_CD, A.INSP_DAY_SEQ
+			 ORDER BY A.WORKACT_SEQ, A.INSP_TYPE_CD, A.INSP_SME_CD, A.INSP_DAY_SEQ DESC
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE PAGE_RNUM > #{firstIndex} AND PAGE_RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.InspRltVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM (
+            SELECT A.WORKACT_SEQ
+			     , A.INSP_TYPE_CD
+			     , A.INSP_SME_CD
+			     , A.INSP_DAY_SEQ
+			     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'INSP_SME_CD' AND SCODE = A.INSP_SME_CD) AS INSP_SME_NM
+			     , MIN(A.INSP_DAY_SEQ) AS INSP_DAY_SEQ
+			     , TO_CHAR(TO_TIMESTAMP(MIN(A.INSP_DT),'YYYYMMDDHH24MISS'),'YYYY/MM/DD HH24:MI:SS') AS INSP_DT
+			     , MIN(A.INSP_RLT_CD) AS INSP_RLT_CD
+			  FROM MPO012 A
+			 WHERE 1=1
+			   AND A.USE_YN = 'Y'
+			   AND A.WORKACT_SEQ = #{searchWorkactSeq}
+			   AND A.INSP_TYPE_CD = #{searchInspTypeCd}
+			   <if test="searchInspSmeCd != null and searchInspSmeCd != ''">
+			   AND A.INSP_SME_CD = #{searchInspSmeCd}
+			   </if>
+			 GROUP BY A.WORKACT_SEQ, A.INSP_TYPE_CD, A.INSP_SME_CD, A.INSP_DAY_SEQ
+        ) A
+    </select>
+
+    <select id="searchInspRsltList" parameterType="org.rnt.com.entity.vo.InspRltVO" resultType="org.rnt.com.entity.vo.InspRltVO">
+    	SELECT INSP.INSP_SEQ
+			 , INSP.WORKACT_SEQ
+		     , COALESCE(INSP.INSP_DAY_SEQ, (SELECT COALESCE(MAX(INSP_DAY_SEQ)+1, 1)
+		     								  FROM MPO012
+		     								 WHERE WORKACT_SEQ = #{workactSeq}
+		     								   AND INSP_TYPE_CD = #{inspTypeCd}
+		     								   AND INSP_SME_CD = #{inspSmeCd})) AS INSP_DAY_SEQ
+			 , BOM_INSP.INSP_TYPE_CD
+			 , INSP.INSP_SME_CD
+		     , BOM_INSP.INSP_ITEM_CD
+		     , BASE_INSP.INSP_ITEM_NM
+		     , BOM_INSP.HIGH_VAL
+		     , BOM_INSP.LOW_VAL
+		     , COALESCE(INSP.MEASURE_VAL,0) AS MEASURE_VAL
+		     , BASE_INSP.INSP_DANWI_CD
+		     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'INSP_DANWI_CD' AND SCODE = BASE_INSP.INSP_DANWI_CD) AS INSP_DANWI_NM
+		     , INSP.INSP_RLT_CD
+		     , TO_CHAR(TO_TIMESTAMP(INSP.INSP_DT,'YYYYMMDDHH24MISS'),'YYYY/MM/DD HH24:MI:SS') AS INSP_DT
+		  FROM MCC050 BOM_INSP
+		       INNER JOIN MCC033 BASE_INSP ON BASE_INSP.INSP_TYPE_CD = BOM_INSP.INSP_TYPE_CD
+						  				  AND BASE_INSP.INSP_ITEM_CD = BOM_INSP.INSP_ITEM_CD
+		       LEFT OUTER JOIN MPO012 INSP ON INSP.INSP_TYPE_CD = BOM_INSP.INSP_TYPE_CD
+						  				  AND INSP.INSP_ITEM_CD = BOM_INSP.INSP_ITEM_CD
+						  				  AND INSP.INSP_SME_CD = COALESCE(#{inspSmeCd}, 'S')
+						  				  AND INSP.WORKACT_SEQ = #{workactSeq}
+						  				  AND INSP.INSP_DAY_SEQ = (CASE
+						  				  							WHEN #{inspDaySeq} > 0 THEN #{inspDaySeq}
+						  				  							ELSE (SELECT COALESCE(MAX(INSP_DAY_SEQ)+1, 1)
+						  				  									FROM MPO012
+						  				  								   WHERE WORKACT_SEQ = #{workactSeq}
+						  				  								     AND INSP_TYPE_CD = #{inspTypeCd}
+						  				  								     AND INSP_SME_CD = #{inspSmeCd})
+						  				  						  END)
+			   INNER JOIN MCC020 BOM ON BOM.BOM_SEQ = BOM_INSP.BOM_SEQ
+		 WHERE (BOM.OPER_CD, BOM.ITEM_CD) = (SELECT A.OPER_CD
+												  , A.ITEM_CD
+											   FROM MPO011 A
+											  WHERE A.WORKACT_SEQ = #{workactSeq})
+		   AND BOM_INSP.INSP_TYPE_CD = #{inspTypeCd}
+		 ORDER BY BOM_INSP.INSP_ITEM_CD ASC
+    </select>
+
+    <select id="getInspDaySeq" parameterType="org.rnt.com.entity.vo.InspRltVO" resultType="org.rnt.com.entity.vo.InspRltVO">
+    	SELECT COALESCE(MAX(INSP_DAY_SEQ)+1, 1) AS INSP_DAY_SEQ
+    	  FROM MPO012
+    	 WHERE WORKACT_SEQ = #{workactSeq}
+    	   AND INSP_TYPE_CD = #{inspTypeCd}
+    	   AND INSP_SME_CD = #{inspSmeCd}
+    </select>
+
+</mapper>

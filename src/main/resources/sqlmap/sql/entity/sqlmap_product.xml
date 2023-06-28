@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc016">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.ProductVO">
+	    <selectKey keyProperty="itemCd" resultType="String" order="BEFORE">
+            SELECT 'ITEM' || LPAD(CAST(CAST(SUBSTR(COALESCE(MAX(ITEM_CD), 'ITEM0000000'), 6) AS INTEGER) + 1 AS TEXT) ,5,'0') FROM MCC016
+        </selectKey>
+		INSERT INTO MCC016
+		(
+			FACTORY_CD
+		    ,ITEM_CD
+		    ,ITEM_NM
+		    ,ITEM_SIZE
+		    ,ITEM_COLOR
+		    ,BOM_VER
+		    ,ITEM_IMAGE_DATA
+		    ,BIGO
+		    ,USE_YN
+		    ,WRITE_DT
+		    ,WRITE_ID
+		    ,UPDATE_DT
+		    ,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,#{itemCd}
+			,#{itemNm}
+			,#{itemSize}
+			,#{itemColor}
+			,#{bomVer}
+			,#{itemImageData}
+			,#{bigo}
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.ProductVO" resultType="org.rnt.com.entity.vo.ProductVO">
+		SELECT
+			FACTORY_CD
+		    ,ITEM_CD
+		    ,ITEM_NM
+		    ,ITEM_SIZE
+		    ,ITEM_COLOR
+		    ,BOM_VER
+		    ,ITEM_IMAGE
+            ,ITEM_IMAGE_DATA
+		    ,BIGO
+		    ,USE_YN
+		    ,WRITE_DT
+		    ,WRITE_ID
+		    ,UPDATE_DT
+		    ,UPDATE_ID
+		    ,(SELECT COUNT(*) FROM MCC020 WHERE ITEM_CD=A.ITEM_CD) as bomCnt
+            ,(SELECT COUNT(*) FROM MPO009 WHERE ITEM_CD=A.ITEM_CD) as prodOrdCnt
+		FROM MCC016 A
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  <if test="itemCd != null and itemCd !=''">
+		  AND ITEM_CD != #{itemCd}
+		  </if>
+		  AND ITEM_NM = #{itemNm}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.ProductVO">
+		UPDATE MCC016
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="itemNm != null">,ITEM_NM = #{itemNm}</if>
+			<if test="itemSize != null">,ITEM_SIZE = #{itemSize}</if>
+			<if test="itemColor != null">,ITEM_COLOR = #{itemColor}</if>
+			<if test="bomVer != null">,BOM_VER = #{bomVer}</if>
+			<if test="itemImage != null">,ITEM_IMAGE = #{itemImage}</if>
+            <if test="itemImageData != null and itemImageData != ''">,ITEM_IMAGE_DATA = #{itemImageData}</if>
+			<if test="bigo != null">,BIGO = #{bigo}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND ITEM_CD = #{itemCd}
+
+	</update>
+
+	<update id="delete_update" parameterType="org.rnt.com.entity.vo.ProductVO">
+		UPDATE MCC016
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+		    ,USE_YN = 'N'
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND ITEM_CD = #{itemCd}
+	</update>
+	
+	<delete id="delete" parameterType="org.rnt.com.entity.vo.ProductVO">
+        DELETE FROM MCC016
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEM_CD    = #{itemCd}
+    </delete>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.ProductVO" resultType="org.rnt.com.entity.vo.ProductVO">
+		SELECT *
+		FROM (
+			SELECT FACTORY_CD
+			     , ITEM_CD
+			     , ITEM_NM
+			     , ITEM_SIZE
+			     , ITEM_COLOR
+			     , BOM_VER
+			     , ITEM_IMAGE
+			     , BIGO
+			     , USE_YN
+			     , WRITE_DT
+			     , TO_CHAR(A.WRITE_DT, 'YYYY-MM-DD') AS WRITE_DT_STR
+			     , WRITE_ID
+			     , (SELECT LOGIN_NAME FROM MCC019 WHERE LOGIN_ID = A.WRITE_ID) AS WRITE_NM
+			     , UPDATE_DT
+			     , UPDATE_ID
+			     <if test="sortCol != null">
+			     , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			     </if>
+			     <if test="sortCol == null">
+			     , ROW_NUMBER() OVER(ORDER BY UPDATE_DT DESC) AS RNUM
+			     </if>
+			     , (SELECT MAX(BOM_STDT) FROM MCC020 WHERE ITEM_CD = A.ITEM_CD AND BOM_TYPE_CD = 'OP' AND BOM_LEVEL = 1) AS BOM_STDT
+			     , (SELECT MAX(OPER_CD) FROM MCC020 WHERE ITEM_CD = A.ITEM_CD AND BOM_TYPE_CD = 'OP' AND BOM_LEVEL = 1) AS OPER_CD
+			     , (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = (SELECT MAX(OPER_CD) FROM MCC020 WHERE ITEM_CD = A.ITEM_CD AND BOM_TYPE_CD = 'OP' AND BOM_LEVEL = 1)) AS OPER_NM
+			     , (SELECT MAX(OPER_SEQ) FROM MCC020 WHERE ITEM_CD = A.ITEM_CD AND BOM_TYPE_CD = 'OP' AND BOM_LEVEL = 1) AS OPER_SEQ
+			FROM MCC016 A
+			WHERE 1=1
+			  AND USE_YN = 'Y'
+              <if test="searchItemNm != null and searchItemNm != ''">
+                  AND ITEM_NM LIKE '%'||#{searchItemNm}||'%'
+              </if>
+              <if test="searchItemCd != null and searchItemCd != ''">
+                  AND ITEM_CD LIKE '%'||#{searchItemCd}||'%'
+              </if>
+              <if test="searchItemTypeCd != null and searchItemTypeCd != ''">
+                  AND ITEM_TYPE_CD LIKE '%'||#{searchItemTypeCd}||'%'
+              </if>
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+		</if>
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.ProductVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MCC016
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+          <if test="searchItemNm != null and searchItemNm != ''">
+              AND ITEM_NM LIKE '%'||#{searchItemNm}||'%'
+          </if>
+          <if test="searchItemCd != null and searchItemCd != ''">
+                  AND ITEM_CD LIKE '%'||#{searchItemCd}||'%'
+          </if>
+          <if test="searchItemTypeCd != null and searchItemTypeCd != ''">
+                  AND ITEM_TYPE_CD LIKE '%'||#{searchItemTypeCd}||'%'
+          </if>
+	</select>
+</mapper>

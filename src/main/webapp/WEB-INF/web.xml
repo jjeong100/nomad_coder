@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://java.sun.com/xml/ns/javaee" xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd" version="2.5">
+  
+  <display-name>com.rntime.web</display-name>
+  
+  <filter>
+    <filter-name>encodingFilter</filter-name>
+    <filter-class>
+			org.springframework.web.filter.CharacterEncodingFilter
+		</filter-class>
+    <init-param>
+      <param-name>encoding</param-name>
+      <param-value>utf-8</param-value>
+    </init-param>
+  </filter>
+  
+  <filter-mapping>
+    <filter-name>encodingFilter</filter-name>
+    <url-pattern>*.do</url-pattern>
+  </filter-mapping>  
+  
+  <context-param>
+    <param-name>contextConfigLocation</param-name>
+    <param-value>classpath*:context/context-*.xml</param-value>
+  </context-param>
+
+  <listener>
+    <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+  </listener>
+  
+  
+  <!-- Configurations for the DispatcherServlet application context (child context) -->
+  <servlet>
+    <servlet-name>action</servlet-name>
+    <servlet-class>
+			org.springframework.web.servlet.DispatcherServlet
+	</servlet-class>
+    <init-param>
+      <param-name>contextConfigLocation</param-name>
+      <param-value>
+                /WEB-INF/config/spring-mvc.xml,
+				/WEB-INF/config/dispatcher-servlet.xml,
+	  </param-value>
+    </init-param>
+    <load-on-startup>1</load-on-startup>
+  </servlet>
+  
+  <servlet-mapping>
+    <servlet-name>action</servlet-name>
+    <url-pattern>*.do</url-pattern>
+  </servlet-mapping>
+  
+  <welcome-file-list>
+    <welcome-file>index.jsp</welcome-file>
+  </welcome-file-list>
+  
+  <session-config>
+      <session-timeout>30</session-timeout>
+  </session-config>
+  
+  <error-page>
+    <error-code>404</error-code>
+    <location>/common/error.jsp</location>
+  </error-page>
+  <error-page>
+    <error-code>500</error-code>
+    <location>/common/error.jsp</location>
+  </error-page>  
+  
+  <!-- spring 3.2부터 mbeanDomai JNDI 로직이 디폴트 네이밍으로 찾는 로직이 있어 초기 파라미터를 셋팅함 !!
+   (spring.livebeansview.mbeandomain not found)-->
+  <context-param>  
+    <param-name>spring.profiles.active</param-name>  
+    <param-value>dev</param-value>  
+  </context-param>  
+  <context-param>  
+    <param-name>spring.profiles.default</param-name>  
+    <param-value>dev</param-value>  
+  </context-param>
+  <context-param>  
+    <param-name>spring.liveBeansView.mbeanDomain</param-name>  
+    <param-value>dev</param-value>  
+  </context-param>  
+  
+</web-app>

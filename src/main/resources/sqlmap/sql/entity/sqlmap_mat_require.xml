@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mpo007">
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.MatRequireVO">
+        INSERT INTO MPO007
+        (
+             FACTORY_CD
+            ,OPMAT_SEQ
+            ,PROD_SEQ
+            ,ITEM_CD
+            ,MAT_CD
+            ,DEMAND_QTY
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        ) VALUES (
+             #{factoryCd}
+            ,#{opmatSeq}
+            ,#{prodSeq}
+            ,#{itemCd}
+            ,#{matCd}
+            ,#{demandQty}
+            ,'Y'
+            ,now()
+            ,#{writeId}
+            ,now()
+            ,#{updateId}
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.MatRequireVO" resultType="org.rnt.com.entity.vo.MatRequireVO">
+        SELECT
+             FACTORY_CD
+            ,OPMAT_SEQ
+            ,ITEM_CD
+            ,MAT_CD
+            ,PROD_SEQ
+            ,DEMAND_QTY
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        FROM MPO007 A
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND OPMAT_SEQ = #{opmatSeq}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.MatRequireVO">
+        UPDATE MPO007
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            <if test="prodSeq != null">,PROD_SEQ = #{prodSeq}</if>
+            <if test="itemCd != null">,ITEM_CD = #{itemCd}</if>
+            <if test="matCd != null">,MAT_CD = #{matCd}</if>
+            <if test="demandQty != null">,DEMAND_QTY = #{demandQty}</if>
+            <if test="useYn != null">,USE_YN = #{useYn}</if>
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND OPMAT_SEQ = #{opmatSeq}
+
+    </update>
+
+    <update id="delete" parameterType="org.rnt.com.entity.vo.MatRequireVO">
+        UPDATE MPO007
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            ,USE_YN = 'N'
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND OPMAT_SEQ = #{opmatSeq}
+    </update>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.MatRequireVO" resultType="org.rnt.com.entity.vo.MatRequireVO">
+        SELECT FACTORY_CD
+             , OPMAT_SEQ
+             , PROD_SEQ
+             , ITEM_CD
+             , MAT_CD
+             , MAT_NM
+             , DEMAND_QTY
+             , USE_YN
+             , WRITE_DT
+             , WRITE_ID
+             , UPDATE_DT
+             , UPDATE_ID
+             , LOTID
+             , MAT_OUT_CNT
+             , MAT_OUT_DT
+             , MAT_OUT_NM
+             , RNUM
+        FROM (
+            SELECT FACTORY_CD
+                 , OPMAT_SEQ
+                 , PROD_SEQ
+                 , ITEM_CD
+                 , A.MAT_CD
+                 , (SELECT MAT_NM FROM MCC010 WHERE MAT_CD = A.MAT_CD) AS MAT_NM
+                 , DEMAND_QTY
+                 , STOCK.REMAIN_QTY
+                 , USE_YN
+                 , WRITE_DT
+                 , WRITE_ID
+                 , UPDATE_DT
+                 , UPDATE_ID
+                 , (SELECT MAX(LOTID) FROM MMA024 WHERE PROD_SEQ = A.PROD_SEQ AND MAT_CD = A.MAT_CD AND USE_YN = 'Y') AS LOTID
+                 , (SELECT SUM(OUT_CNT) FROM MMA024 WHERE PROD_SEQ = A.PROD_SEQ AND MAT_CD = A.MAT_CD AND USE_YN = 'Y') AS MAT_OUT_CNT
+                 , (SELECT TO_CHAR(MAX(OUT_DT)::TIMESTAMP,'YYYY/MM/DD') FROM MMA024 WHERE PROD_SEQ = A.PROD_SEQ AND MAT_CD = A.MAT_CD AND USE_YN = 'Y') AS MAT_OUT_DT
+                 , (SELECT LOGIN_NAME FROM MCC019 WHERE LOGIN_ID IN (SELECT WRITE_ID FROM MMA024 WHERE PROD_SEQ = A.PROD_SEQ AND MAT_CD = A.MAT_CD AND USE_YN = 'Y')) AS MAT_OUT_NM
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY OPMAT_SEQ ASC) AS RNUM
+                 </if>
+            FROM MPO007 A
+                 LEFT OUTER JOIN (SELECT MAT_CD
+                                        , SUM(IN_QTY) - SUM(GOUT_QTY) + SUM(GRNT_QTY) - SUM(DISUSE_QTY) + SUM(MODIFY_QTY) AS REMAIN_QTY
+                                  FROM (
+                                        SELECT MAT_CD, IN_CNT - COALESCE(IN_BAD_CNT, 0) AS IN_QTY
+                                             , 0 AS GOUT_QTY, 0 AS GRNT_QTY, 0 AS DISUSE_QTY, 0 AS MODIFY_QTY
+                                          FROM MMA022 /* 입고 */
+                                         WHERE 1=1
+                                           AND USE_YN = 'Y'
+                                        UNION ALL
+                                        SELECT MAT_CD, 0 AS IN_QTY
+                                             , CASE WHEN MAT_OUT_TYPE_CD = 'GOUT' THEN OUT_CNT ELSE 0 END AS GOUT_QTY
+                                             , CASE WHEN MAT_OUT_TYPE_CD = 'GRNT' THEN OUT_CNT ELSE 0 END AS GRNT_QTY
+                                             , CASE WHEN MAT_OUT_TYPE_CD = 'DISUSE' THEN OUT_CNT ELSE 0 END AS DISUSE_QTY
+                                             , CASE WHEN MAT_OUT_TYPE_CD = 'MODIFY' THEN OUT_CNT ELSE 0 END AS MODIFY_QTY
+                                          FROM MMA024 /* 출고 */
+                                         WHERE 1=1
+                                           AND USE_YN = 'Y'
+                                        ) A
+                                    GROUP BY A.MAT_CD) STOCK ON STOCK.MAT_CD = A.MAT_CD
+            WHERE 1=1
+              AND USE_YN = 'Y'
+              <if test="searchProdSeq != null and searchProdSeq != ''">
+                  AND PROD_SEQ = #{searchProdSeq}
+              </if>
+
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.MatRequireVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM MPO007
+        WHERE 1=1
+          AND USE_YN = 'Y'
+          <if test="searchProdSeq != null and searchProdSeq != ''">
+              AND PROD_SEQ = #{searchProdSeq}
+          </if>
+    </select>
+
+    <select id="searchRequireMatList" parameterType="org.rnt.com.entity.vo.MatRequireVO" resultType="org.rnt.com.entity.vo.MatRequireVO">
+        SELECT A.PROD_SEQ
+             , ITEM.ITEM_NM
+             , TO_CHAR(TO_DATE(A.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+             , B.MAT_CD
+             , B.OPER_CD
+             , (SELECT MAT_NM FROM MCC010 WHERE MAT_CD = B.MAT_CD AND USE_YN = 'Y') AS MAT_NM
+             , A.PO_QTY AS CONFIRM_QTY
+             , B.CONFIRM_QTY AS MAT_EA
+             , (SELECT SUM(OUT_CNT) FROM MMA024 WHERE PROD_SEQ = A.PROD_SEQ AND MAT_CD = B.MAT_CD) AS MAT_OUT_CNT
+             , (SELECT MAX(LOTID) FROM MMA024 WHERE PROD_SEQ = A.PROD_SEQ AND MAT_CD = B.MAT_CD) AS LOTID
+          FROM MPO009 A
+               INNER JOIN MCC016 ITEM ON ITEM.ITEM_CD = A.ITEM_CD
+               LEFT OUTER JOIN (SELECT PROD_SEQ
+                                     , MAT_CD
+                                     , OPER_CD
+                                     , CONFIRM_QTY
+                                     , (SELECT CASE WHEN REMAIN_QTY IS NULL THEN 0 ELSE REMAIN_QTY END FROM MCC020 WHERE BOM_SEQ = A.BOM_SEQ AND USE_YN = 'Y') AS REMAIN_QTY
+                                  FROM MPO007 A) B ON A.PROD_SEQ = B.PROD_SEQ
+         WHERE 1=1
+           AND CONFIRM_QTY > (SELECT COALESCE(SUM(OUT_CNT), 0) FROM MMA024 WHERE PROD_SEQ = A.PROD_SEQ AND MAT_CD = B.MAT_CD)
+           <if test="searchPoCalldt != null and searchPoCalldt != ''">
+           AND PO_CALLDT = REGEXP_REPLACE(#{searchPoCalldt}, '[^0-9]', '', 'g')
+           </if>
+           <if test="searchProdSeq != null and searchProdSeq != ''">
+               AND A.PROD_SEQ = #{searchProdSeq}
+           </if>
+           <if test="searchMatCd != null and searchMatCd != ''">
+               AND B.MAT_CD = #{searchMatCd}
+           </if>
+    </select>
+
+    <select id="searchMatRequireList" parameterType="org.rnt.com.entity.vo.MatRequireVO" resultType="org.rnt.com.entity.vo.MatRequireVO">
+        SELECT BOM.FACTORY_CD
+             , BOM.ITEM_CD
+             , BOM.MAT_CD
+             , COALESCE((SELECT MAT_NM FROM MCC010 WHERE MAT_CD = BOM.MAT_CD AND USE_YN = 'Y')
+             , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = BOM.MAT_CD)) AS MAT_NM
+             , COALESCE(PROD.PO_QTY, #{searchPoQty}) AS PO_QTY
+             , COALESCE(BOM.DEMAND_QTY * COALESCE(PROD.PO_QTY, #{searchPoQty}),0) AS DEMAND_QTY
+             , COALESCE(STOCK.REMAIN_QTY, 0) AS REMAIN_QTY
+          FROM MCC020 BOM
+                 LEFT OUTER JOIN MCC010 MAT ON MAT.MAT_CD = BOM.MAT_CD
+                 LEFT OUTER JOIN MPO009 PROD ON PROD.BOM_VER = BOM.BOM_VER
+                                           AND PROD.BOM_STDT = BOM.BOM_STDT
+                                           AND PROD.OPER_CD = BOM.OPER_CD
+                                           AND PROD.OPER_SEQ = BOM.OPER_SEQ
+                                           AND PROD.ITEM_CD = BOM.ITEM_CD
+                                           AND PROD.PROD_SEQ = COALESCE(#{searchProdSeq}, #{prodSeq})
+               LEFT OUTER JOIN (SELECT MAT_CD
+                                        , SUM(IN_QTY) - SUM(GOUT_QTY) + SUM(GRNT_QTY) - SUM(DISUSE_QTY) + SUM(MODIFY_QTY) AS REMAIN_QTY
+                                  FROM (
+                                        SELECT MAT_CD, IN_CNT AS IN_QTY
+                                             , 0 AS GOUT_QTY, 0 AS GRNT_QTY, 0 AS DISUSE_QTY, 0 AS MODIFY_QTY
+                                          FROM MMA022 /* 입고 */
+                                         WHERE 1=1
+                                           AND USE_YN = 'Y'
+                                        UNION ALL
+                                        SELECT MAT_CD, 0 AS IN_QTY
+                                             , CASE WHEN MAT_OUT_TYPE_CD = 'GOUT' THEN OUT_CNT ELSE 0 END AS GOUT_QTY
+                                             , CASE WHEN MAT_OUT_TYPE_CD = 'GRNT' THEN OUT_CNT ELSE 0 END AS GRNT_QTY
+                                             , CASE WHEN MAT_OUT_TYPE_CD = 'DISUSE' THEN OUT_CNT ELSE 0 END AS DISUSE_QTY
+                                             , CASE WHEN MAT_OUT_TYPE_CD = 'MODIFY' THEN OUT_CNT ELSE 0 END AS MODIFY_QTY
+                                          FROM MMA024 /* 출고 */
+                                         WHERE 1=1
+                                           AND USE_YN = 'Y'
+                                        ) A
+                                    GROUP BY A.MAT_CD) STOCK ON STOCK.MAT_CD = BOM.MAT_CD
+         WHERE 1 = 1
+           AND BOM.BOM_TYPE_CD = 'MT'
+           AND BOM.ITEM_CD = #{searchItemCd}
+           AND EXISTS (SELECT * FROM MCC020
+                        WHERE BOM_TYPE_CD = 'OP'
+                          AND BOM_LEVEL = 1
+                          AND ITEM_CD = BOM.ITEM_CD)
+         ORDER BY BOM.WRITE_DT ASC
+    </select>
+
+    <select id="searchRequireMatListByChildProdSeq" parameterType="org.rnt.com.entity.vo.MatRequireVO" resultType="org.rnt.com.entity.vo.MatRequireVO">
+        select A.PROD_SEQ
+             , A.ITEM_CD
+             , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD =  A.ITEM_CD) AS ITEM_NM
+             , TO_CHAR(TO_DATE(A.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+             , B.MAT_CD
+             , D.MAT_NM
+             , (A.PO_QTY*B.DEMAND_QTY) AS DEMAND_QTY
+             , COALESCE(C.OUT_CNT, 0) AS MAT_OUT_QTY
+             , C.LOTID
+         FROM MPO009 A
+         INNER JOIN MCC020 B ON A.ITEM_CD = B.ITEM_CD AND B.BOM_TYPE_CD='MT'
+         LEFT OUTER JOIN MCC010 D ON D.MAT_CD = B.MAT_CD
+                 LEFT OUTER JOIN (SELECT PROD_SEQ
+                                     , MAT_CD
+                                     , SUM(OUT_CNT) AS OUT_CNT
+                                     , MAX(LOTID) AS LOTID
+                                  FROM MMA024
+                                 WHERE 1 = 1
+                                   AND MAT_OUT_TYPE_CD = 'GOUT'
+                                 GROUP BY PROD_SEQ, MAT_CD
+                                ) C ON C.PROD_SEQ = A.PROD_SEQ AND B.MAT_CD=C.MAT_CD
+        WHERE 1 = 1
+           AND A.PROD_SEQ = #{searchProdSeq}
+           <if test="searchMatCd != null and searchMatCd != ''">
+           AND B.MAT_CD = #{searchMatCd}
+           </if>
+         ORDER BY B.MAT_CD
+    </select>
+
+</mapper>

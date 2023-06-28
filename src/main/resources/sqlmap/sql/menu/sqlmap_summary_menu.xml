@@ -1,0 +1,1240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="summaryMenu">
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 설비실적 : equipSumList                                                                                                          -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchEquipSumList" parameterType="org.rnt.summary.vo.EquipSumInVO" resultType="org.rnt.summary.vo.EquipSumOutVO">
+        SELECT *
+          FROM (
+                  SELECT A.*
+                      <if test="sortCol != null">
+                      , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                      </if>
+                      <if test="sortCol == null">
+                      , ROW_NUMBER() OVER(ORDER BY SB_DT ASC) AS RNUM
+                      </if>
+                   FROM (
+                            SELECT A.EQUIP_CD
+                                , A.EQUIP_NM
+                                , COALESCE(SUM(B.WORK_QTY), 0) AS WORK_CNT
+                                , 0 AS ERROR_CNT
+                                , CASE WHEN COALESCE(SUM(B.WORK_QTY),0) = 0 THEN 0 ELSE ROUND(0*100/COALESCE(SUM(B.WORK_QTY),0)::numeric,2) END ERROR_RATE
+                         FROM MCC026 A
+                             LEFT OUTER JOIN MCC088 B ON B.EQUIP_CD = A.EQUIP_CD
+                        WHERE 1=1
+                        <if test="searchEquipNm != null and searchEquipNm != ''">
+                         AND A.EQUIP_NM LIKE '%'||#{searchEquipNm}||'%'
+                        </if>
+                        GROUP BY A.EQUIP_CD, A.EQUIP_NM
+                      ) A
+                ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+    
+    <select id="searchEquipSumList_backup" parameterType="org.rnt.summary.vo.EquipSumInVO" resultType="org.rnt.summary.vo.EquipSumOutVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY SB_DT ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT A.EQUIP_CD
+                      ,A.EQUIP_NM
+                      ,COALESCE(SUM(B.ACTOK_QTY),0) AS WORK_CNT
+                      ,COALESCE(SUM(B.ACTBAD_QTY),0) AS ERROR_CNT
+                      ,CASE WHEN COALESCE(SUM(B.ACTOK_QTY),0) = 0 THEN 0 ELSE ROUND(COALESCE(SUM(B.ACTBAD_QTY),0)*100/COALESCE(SUM(B.ACTOK_QTY),0)::numeric,2) END ERROR_RATE
+                FROM MCC024 A LEFT OUTER JOIN ( 
+                    SELECT EQUIP_CD,TO_CHAR(TO_DATE(WORK_DT,'YYYYMMDD'),'YYYY/MM') AS YM,ACTOK_QTY,ACTBAD_QTY
+                    FROM MPO011 
+                    WHERE PROD_TYPE_CD NOT IN ('WAT','CAN')
+                      AND WORK_DT BETWEEN #{searchFromDate} AND #{searchToDate}) B 
+                ON (A.EQUIP_CD = B.EQUIP_CD)
+                WHERE 1=1
+                  <if test="searchEquipNm != null and searchEquipNm != ''">
+                      AND A.EQUIP_NM LIKE '%'||#{searchEquipNm}||'%'
+                  </if>
+                GROUP BY A.EQUIP_CD, A.EQUIP_NM    
+            ) A
+                
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchEquipSumListTotCnt" parameterType="org.rnt.summary.vo.EquipSumInVO" resultType="java.lang.Integer">
+        SELECT COUNT(EQUIP_CD) AS TOT_CNT
+          FROM (
+                  SELECT A.EQUIP_CD
+                       , A.EQUIP_NM
+                  FROM MCC026 A
+                 WHERE 1=1
+                   <if test="searchEquipNm != null and searchEquipNm != ''">
+                   AND A.EQUIP_NM LIKE '%'||#{searchEquipNm}||'%'
+                   </if>
+                 GROUP BY A.EQUIP_CD, A.EQUIP_NM
+                ) A
+    </select>
+    
+    <select id="searchEquipSumListTotCnt_backup" parameterType="org.rnt.summary.vo.EquipSumInVO" resultType="java.lang.Integer">
+        SELECT COUNT(EQUIP_CD) AS TOT_CNT
+        FROM (
+            SELECT A.EQUIP_CD
+                  ,A.EQUIP_NM
+                  ,COALESCE(SUM(B.ACTOK_QTY),0) AS WORK_CNT
+                  ,COALESCE(SUM(B.ACTBAD_QTY),0) AS ERR_CNT
+            FROM MCC024 A LEFT OUTER JOIN ( 
+                SELECT EQUIP_CD,TO_CHAR(TO_DATE(WORK_DT,'YYYYMMDD'),'YYYY/MM') AS YM,ACTOK_QTY,ACTBAD_QTY
+                FROM MPO011 
+                WHERE PROD_TYPE_CD NOT IN ('WAT','CAN')
+                  AND WORK_DT BETWEEN #{searchFromDate} AND #{searchToDate}) B 
+            ON (A.EQUIP_CD = B.EQUIP_CD)
+            WHERE 1=1
+              <if test="searchEquipNm != null and searchEquipNm != ''">
+                  AND A.EQUIP_NM LIKE '%'||#{searchEquipNm}||'%'
+              </if>
+            GROUP BY A.EQUIP_CD, A.EQUIP_NM    
+        ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 월별설비실적 : equipMonthSumList                                                                                                   -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchEquipMonthSumList" parameterType="org.rnt.summary.vo.EquipSumInVO" resultType="org.rnt.summary.vo.EquipSumOutVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY SB_DT ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT EQUIP_CD, EQUIP_NM
+                     , SUM(MONTH01) AS MONTH01
+                     , SUM(MONTH02) AS MONTH02
+                     , SUM(MONTH03) AS MONTH03
+                     , SUM(MONTH04) AS MONTH04
+                     , SUM(MONTH05) AS MONTH05
+                     , SUM(MONTH06) AS MONTH06
+                     , SUM(MONTH07) AS MONTH07
+                     , SUM(MONTH08) AS MONTH08
+                     , SUM(MONTH09) AS MONTH09
+                     , SUM(MONTH10) AS MONTH10
+                     , SUM(MONTH11) AS MONTH11
+                     , SUM(MONTH12) AS MONTH12
+                FROM (
+                    SELECT EQUIP_CD,EQUIP_NM,YM, COALESCE(SUM(WORK_CNT), 0) AS WORK_CNT
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '01' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH01
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '02' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH02
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '03' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH03
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '04' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH04
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '05' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH05
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '06' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH06
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '07' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH07
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '08' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH08
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '09' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH09
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '10' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH10
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '11' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH11
+                          ,COALESCE(CASE WHEN SUBSTR(YM,6,2) = '12' THEN COALESCE(SUM(WORK_CNT),0) END,0) AS MONTH12
+                    
+                    FROM (
+                        SELECT A.EQUIP_CD
+                              ,A.EQUIP_NM
+                              ,B.YM
+                              ,B.ACTOK_QTY AS WORK_CNT
+                        FROM MCC024 A 
+                             LEFT OUTER JOIN (SELECT 
+                                                     EQUIP_CD
+                                                    , PROD_SEQ
+                                                    , TO_CHAR(WRITE_DT, 'YYYY/MM/DD') AS YM
+                                                    , SUM(WORK_QTY) AS ACTOK_QTY
+                                                        <!-- - CASE WHEN EQUIP_CD IN ('EQUIP09', 'EQUIP10', 'EQUIP99') THEN MIN(WORK_CNT) ELSE 0 END AS ACTOK_QTY -->
+                                                    , 0 AS ACTBAD_QTY
+                                                 FROM MCC088
+                                                WHERE TO_CHAR(WRITE_DT, 'YYYYMMDD') BETWEEN #{searchFromDate}||'01' AND #{searchToDate}||'31'
+                                                GROUP BY EQUIP_CD, PROD_SEQ, TO_CHAR(WRITE_DT, 'YYYY/MM/DD')) B ON B.EQUIP_CD = A.EQUIP_CD
+                        WHERE 1=1
+                        <if test="searchEquipNm != null and searchEquipNm != ''">
+                            AND A.EQUIP_NM LIKE '%'||#{searchEquipNm}||'%'
+                        </if>
+                    ) A
+                    GROUP BY YM, EQUIP_CD, EQUIP_NM
+                ) A
+                GROUP BY EQUIP_CD, EQUIP_NM
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchEquipMonthSumListTotCnt" parameterType="org.rnt.summary.vo.EquipSumInVO" resultType="java.lang.Integer">
+        SELECT COUNT(EQUIP_CD) AS TOT_CNT
+          FROM (
+                  SELECT A.EQUIP_CD
+                            , A.EQUIP_NM
+                  FROM MCC024 A
+                 WHERE 1=1
+                   <if test="searchEquipNm != null and searchEquipNm != ''">
+                   AND A.EQUIP_NM LIKE '%'||#{searchEquipNm}||'%'
+                   </if>
+                 GROUP BY A.EQUIP_CD, A.EQUIP_NM
+                ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 작업자실적 : workerSumList                                                                                                   -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchWorkerSumList" parameterType="org.rnt.summary.vo.WorkerSumInVO" resultType="org.rnt.summary.vo.WorkerSumOutVO">
+        SELECT *
+        FROM (
+            SELECT TO_CHAR(TO_DATE(A.YMD,'YYYYMMDD'),'YYYY/MM/DD') AS YMD
+                 , A.SABUN_ID
+                 , A.SABUN_NM
+                 , A.ITEM_CD
+                 , A.ITEM_NM
+                 , COALESCE(A.ACTOK_QTY,0) AS ACTOK_QTY
+                 , COALESCE(A.ACTBAD_QTY,0) AS ACTBAD_QTY
+                 , COALESCE(A.BAD_RATE,0) AS BAD_RATE
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY YMD ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT YMD
+                      ,SABUN_ID
+                      ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.SABUN_ID) AS SABUN_NM
+                      ,ITEM_CD
+                      ,(SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+                      ,SUM(ACTOK_QTY) AS ACTOK_QTY
+                      ,SUM(ACTBAD_QTY) AS ACTBAD_QTY
+                      ,ROUND(SUM(ACTBAD_QTY)*100/CASE WHEN SUM(ACTOK_QTY)+SUM(ACTBAD_QTY) = 0 THEN 1 ELSE SUM(ACTOK_QTY)+SUM(ACTBAD_QTY) END ,0) AS BAD_RATE
+                FROM (
+                    SELECT SABUN_ID,ITEM_CD,OPER_CD,ACTOK_QTY,ACTBAD_QTY,SUBSTR(WORKED_DT,1,8) AS YMD
+                    FROM MPO011
+                    WHERE 1=1
+                    AND WORKED_DT BETWEEN #{searchFromDate}||'000000' AND #{searchToDate}||'235959'
+                    <if test="searchSabunNm != null and searchSabunNm != ''">
+                       AND SABUN_ID IN (SELECT SABUN_ID FROM MCC019 WHERE LOGIN_NAME LIKE '%'||#{searchSabunNm}||'%')
+                    </if>
+                ) A 
+                GROUP BY YMD,SABUN_ID,ITEM_CD
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchWorkerSumListTotCnt" parameterType="org.rnt.summary.vo.WorkerSumInVO" resultType="java.lang.Integer">
+        SELECT COUNT(YMD) AS TOT_CNT
+        FROM (
+            SELECT YMD
+                  ,SABUN_ID
+                  ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.SABUN_ID) AS SABUN_NM
+                  ,ITEM_CD
+                  ,(SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+                  ,SUM(ACTOK_QTY) AS ACTOK_QTY
+                  ,SUM(ACTBAD_QTY) AS ACTBAD_QTY
+                  ,ROUND(SUM(ACTBAD_QTY)*100/CASE WHEN SUM(ACTOK_QTY)+SUM(ACTBAD_QTY) = 0 THEN 1 ELSE SUM(ACTOK_QTY)+SUM(ACTBAD_QTY) END ,0) AS BAD_RATE
+            FROM (
+                SELECT SABUN_ID,ITEM_CD,OPER_CD,ACTOK_QTY,ACTBAD_QTY,SUBSTR(WORKED_DT,1,8) AS YMD
+                FROM MPO011
+                WHERE 1=1
+                AND WORKED_DT BETWEEN #{searchFromDate}||'000000' AND #{searchToDate}||'235959'
+                <if test="searchSabunNm != null and searchSabunNm != ''">
+                   AND SABUN_ID IN (SELECT SABUN_ID FROM MCC019 WHERE LOGIN_NAME LIKE '%'||#{searchSabunNm}||'%')
+                </if>
+            ) A 
+            GROUP BY YMD,SABUN_ID,ITEM_CD
+        ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 작업지시현황 : searchProductionSumList                                                                                           -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchProductionSumList" parameterType="org.rnt.summary.vo.ProductionSumVO" resultType="org.rnt.summary.vo.ProductionSumVO">
+        SELECT *
+        FROM (
+            SELECT TO_CHAR(TO_DATE(A.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+                 , A.ITEM_CD
+                 , A.ITEM_NM
+                 , TO_CHAR(A.PO_QTY, 'FM99,999,999') AS PO_QTY
+                 , TO_CHAR(A.ACTOK_QTY, 'FM99,999,999') AS ACTOK_QTY
+                 , TO_CHAR(A.CHECK_QTY, 'FM99,999,999') AS CHECK_QTY
+                 , TO_CHAR(A.INOK_QTY, 'FM99,999,999') AS INOK_QTY
+                 , TO_CHAR(A.OUT_QTY, 'FM99,999,999') AS OUT_QTY
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY PO_CALLDT ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT A.PO_CALLDT -- 작업지시일자
+                      ,A.ITEM_CD -- 제품
+                      ,B.ITEM_NM
+                      ,PO_QTY -- 작업지시 수량
+                      ,(SELECT COALESCE(SUM(ACTOK_QTY), 0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                      ,(SELECT COALESCE(SUM(CHECK_QTY), 0) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                      ,(SELECT COALESCE(SUM(INOK_QTY), 0) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                      ,(SELECT COALESCE(SUM(OUT_QTY), 0) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+                FROM MPO009 A 
+                     INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                          AND B.ITEM_CD = A.ITEM_CD
+               WHERE 1=1
+               <if test="searchFromDate != null and searchFromDate != ''">
+                 AND A.PO_CALLDT >= #{searchFromDate}
+               </if>
+               <if test="searchToDate != null and searchToDate != ''">
+                 AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+               </if>
+               <if test="searchItemNm != null and searchItemNm != ''">
+                 AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+               </if>
+                ) A
+            ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchProductionSumListTotCnt" parameterType="org.rnt.summary.vo.ProductionSumVO" resultType="java.lang.Integer">
+        SELECT COUNT(PO_CALLDT) AS TOT_CNT
+        FROM (SELECT A.PO_CALLDT -- 작업지시일자
+                  ,A.ITEM_CD -- 제품
+                  ,B.ITEM_NM
+                  ,PO_QTY -- 작업지시 수량
+                  ,(SELECT SUM(ACTOK_QTY) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                  ,(SELECT SUM(CHECK_QTY) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                  ,(SELECT SUM(INOK_QTY) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                  ,(SELECT SUM(OUT_QTY) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+            FROM MPO009 A 
+                 INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                      AND B.ITEM_CD = A.ITEM_CD
+           WHERE 1=1
+           <if test="searchFromDate != null and searchFromDate != ''">
+                AND A.PO_CALLDT >= #{searchFromDate}
+              </if>
+              <if test="searchToDate != null and searchToDate != ''">
+                AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+              </if>
+              <if test="searchItemNm != null and searchItemNm != ''">
+                AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+              </if>
+        ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 월별작업자실적 : searchMonthSumList                                                                                               -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchMonthSumList" parameterType="org.rnt.summary.vo.WorkerMonthSumVO" resultType="org.rnt.summary.vo.WorkerMonthSumVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY YM ASC) AS RNUM
+                 </if>
+            FROM (
+                  SELECT TO_CHAR(TO_DATE(A.YM,'YYYYMM'),'YYYY/MM') AS YM
+                     , SABUN_ID
+                     , LOGIN_NAME
+                     , ITEM_CD
+                     , ITEM_NM
+                     , TO_CHAR(COALESCE(SUM(ACTOK_QTY),0), 'FM99,999,999') AS ACTOK_QTY
+                     , TO_CHAR(COALESCE(SUM(ACTBAD_QTY),0), 'FM99,999,999') AS ACTBAD_QTY
+                  FROM (SELECT A.SABUN_ID
+                         , C.LOGIN_NAME
+                         , A.ITEM_CD
+                         , B.ITEM_NM
+                         , A.OPER_CD
+                         , A.ACTOK_QTY
+                         , A.ACTBAD_QTY
+                         , SUBSTR(A.WORKED_DT,1,6) AS YM
+                     FROM MPO011 A
+                          INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                                 AND B.ITEM_CD = A.ITEM_CD
+                          INNER JOIN MCC019 C ON C.FACTORY_CD = A.FACTORY_CD
+                                                AND C.SABUN_ID = A.SABUN_ID
+                    WHERE 1=1
+                      AND A.WORKED_DT BETWEEN #{searchFromDate}||'01000000' AND #{searchToDate}||'31235959'
+                   <if test="searchLoginName != null and searchLoginName != ''">
+                     AND C.LOGIN_NAME LIKE '%' || #{searchLoginName} || '%'
+                   </if>
+                   <if test="searchItemNm != null and searchItemNm != ''">
+                     AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+                   </if>
+                   <if test="searchItemCd != null and searchItemCd != ''">
+                     AND B.ITEM_CD LIKE '%' || #{searchItemCd} || '%'
+                   </if>
+                       ) A
+                 GROUP BY YM,SABUN_ID,LOGIN_NAME,ITEM_CD,ITEM_NM
+                ) A
+            ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchMonthSumListTotCnt" parameterType="org.rnt.summary.vo.WorkerMonthSumVO" resultType="java.lang.Integer">
+        SELECT COUNT(YM) AS TOT_CNT
+        FROM (SELECT TO_CHAR(TO_DATE(A.YM,'YYYYMM'),'YYYY/MM') AS YM
+                     , SABUN_ID
+                     , LOGIN_NAME
+                     , ITEM_CD
+                     , ITEM_NM
+                     , TO_CHAR(SUM(ACTOK_QTY), 'FM99,999,999') AS ACTOK_QTY
+                     , TO_CHAR(SUM(ACTBAD_QTY), 'FM99,999,999') AS ACTBAD_QTY
+                  FROM (SELECT A.SABUN_ID
+                         , C.LOGIN_NAME
+                         , A.ITEM_CD
+                         , B.ITEM_NM
+                         , A.OPER_CD
+                         , A.ACTOK_QTY
+                         , A.ACTBAD_QTY
+                         , SUBSTR(A.WORKED_DT,1,6) AS YM
+                     FROM MPO011 A
+                          INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                                 AND B.ITEM_CD = A.ITEM_CD
+                          INNER JOIN MCC019 C ON C.FACTORY_CD = A.FACTORY_CD
+                                                AND C.SABUN_ID = A.SABUN_ID
+                    WHERE 1=1
+                      AND A.WORKED_DT BETWEEN #{searchFromDate}||'01000000' AND #{searchToDate}||'31235959'
+                   <if test="searchLoginName != null and searchLoginName != ''">
+                     AND C.LOGIN_NAME LIKE '%' || #{searchLoginName} || '%'
+                   </if>
+                   <if test="searchItemNm != null and searchItemNm != ''">
+                     AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+                   </if>
+                   <if test="searchItemCd != null and searchItemCd != ''">
+                     AND B.ITEM_CD LIKE '%' || #{searchItemCd} || '%'
+                   </if>
+                       ) A
+                 GROUP BY YM,SABUN_ID,LOGIN_NAME,ITEM_CD,ITEM_NM
+            ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- LOT추적 제품정보 : searchLotTrackingItemList                                                                                     -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchLotTrackingItemList" parameterType="org.rnt.summary.vo.LotTrackingVO" resultType="org.rnt.summary.vo.LotTrackingItemVO">
+        SELECT ITEM_CD
+             , ITEM_NO
+             , ITEM_NM
+             , ITEM_KIND
+             , CUST_NM
+             , TO_CHAR(CAST(PO_QTY AS INTEGER), 'FM99,999,999') AS PO_QTY
+             , TO_CHAR(CAST(ACTOK_QTY AS INTEGER), 'FM99,999,999') AS ACTOK_QTY
+             , TO_CHAR(TO_DATE(WORKED_DT,'YYYYMMDDHH24MISS'),'YYYY/MM/DD') AS WORKED_DT
+          FROM (
+                  <if test="lotDiv.equals('IT')">
+                SELECT A.ITEM_CD     -- 제품코드
+                      ,'' AS ITEM_NO     -- 품번
+                      ,B.ITEM_NM     -- 품명
+                      ,'' AS ITEM_KIND   -- 기종
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD IN (SELECT CUST_CD FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ)) AS CUST_NM -- 고객사
+                      ,(SELECT COALESCE(SUM(PO_QTY),0) FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ) AS PO_QTY                                -- 지시수량
+                      ,(SELECT COALESCE(SUM(ACTOK_QTY),0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND PROD_TYPE_CD = 'END') AS ACTOK_QTY -- 실적수량
+                      ,(SELECT MAX(WORKED_DT) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND PROD_TYPE_CD = 'END') AS WORKED_DT -- 생산일자
+                FROM MWP012 A INNER JOIN MCC016 B ON (A.ITEM_CD = B.ITEM_CD) -- 제품입고, 제품
+                WHERE  LOTID = #{searchLotId}
+                </if>
+                <if test="lotDiv.equals('OT')">
+                SELECT A.ITEM_CD     -- 제품코드
+                      ,'' AS ITEM_NO     -- 품번
+                      ,B.ITEM_NM     -- 품명
+                      ,'' AS ITEM_KIND   -- 기종
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD IN (SELECT CUST_CD FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ)) AS CUST_NM -- 고객사
+                      ,(SELECT COALESCE(SUM(PO_QTY),0) FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ) AS PO_QTY                                -- 지시수량
+                      ,(SELECT COALESCE(SUM(ACTOK_QTY),0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND PROD_TYPE_CD = 'END') AS ACTOK_QTY -- 실적수량
+                      ,(SELECT MAX(WORKED_DT) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND PROD_TYPE_CD = 'END') AS WORKED_DT -- 생산일자
+                FROM MWP015 A INNER JOIN MCC016 B ON (A.ITEM_CD = B.ITEM_CD) -- 제품출고, 제품
+                WHERE LOT_OUT_ID = #{searchLotId}
+                </if>
+                <if test="lotDiv.equals('MT')">
+                SELECT A.ITEM_CD     -- 제품코드
+                      ,'' AS ITEM_NO     -- 품번
+                      ,B.ITEM_NM     -- 품명
+                      ,'' AS ITEM_KIND   -- 기종
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD IN (SELECT CUST_CD FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ)) AS CUST_NM -- 고객사
+                      ,(SELECT COALESCE(SUM(PO_QTY),0) FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ) AS PO_QTY                                -- 지시수량
+                      ,(SELECT COALESCE(SUM(ACTOK_QTY),0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND PROD_TYPE_CD = 'END') AS ACTOK_QTY -- 실적수량
+                      ,(SELECT MAX(WORKED_DT) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND PROD_TYPE_CD = 'END') AS WORKED_DT -- 생산일자
+                FROM MPO007 A INNER JOIN MCC016 B ON (A.ITEM_CD = B.ITEM_CD) -- 자재소요, 제품
+                WHERE 1=1
+                  AND A.PROD_SEQ IN (SELECT PROD_SEQ FROM MMA024 WHERE LOTID = #{searchLotId})
+                </if>
+                <if test="lotDiv.equals('PO')">
+                SELECT A.ITEM_CD     -- 제품코드
+                      ,'' AS ITEM_NO     -- 품번
+                      ,B.ITEM_NM     -- 품명
+                      ,'' AS ITEM_KIND   -- 기종
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD IN (SELECT CUST_CD FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ)) AS CUST_NM -- 고객사
+                      ,(SELECT COALESCE(SUM(PO_QTY),0) FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ) AS PO_QTY                                -- 지시수량
+                      ,(SELECT COALESCE(SUM(ACTOK_QTY),0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND PROD_TYPE_CD = 'END') AS ACTOK_QTY -- 실적수량
+                      ,(SELECT MAX(WORKED_DT) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND PROD_TYPE_CD = 'END') AS WORKED_DT -- 생산일자
+                FROM MPO009 A INNER JOIN MCC016 B ON (A.ITEM_CD = B.ITEM_CD) -- 자재소요, 제품
+                WHERE  PROD_PO_NO = #{searchLotId}
+                </if>
+                  ) A
+                  ORDER BY WORKED_DT
+    </select>
+    
+    <select id="searchLotTrackingMatList" parameterType="org.rnt.summary.vo.LotTrackingVO" resultType="org.rnt.summary.vo.LotTrackingMatVO">
+        SELECT GUBUN
+             , TO_CHAR(TO_DATE(DT,'YYYYMMDD'),'YYYY/MM/DD') AS DT
+             , TO_CHAR(QTY, 'FM99,999,999') AS QTY
+             , LOTID
+             , PROD_PO_NO
+             , MAT_CUST_NM
+             , MAT_CD
+             , MAT_NM
+          FROM (
+                  <if test="lotDiv.equals('IT')">
+                  SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_IN_TYPE_CD' AND SCODE = B.MAT_IN_TYPE_CD ) AS GUBUN
+                      ,B.IN_DT           AS DT
+                      ,B.IN_CNT AS QTY
+                      ,B.LOTID          AS LOTID
+                      ,'N/A' AS PROD_PO_NO
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT MAT_CUST_CD FROM MCC010 WHERE MAT_CD = B.MAT_CD)) AS MAT_CUST_NM
+                      ,B.MAT_CD         AS MAT_CD
+                      ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = B.MAT_CD) AS MAT_NM
+                FROM MMA022 B
+                WHERE B.LOTID IN (SELECT LOTID FROM MMA024 WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MWP012 WHERE LOTID = #{searchLotId}))
+                UNION ALL
+                SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_OUT_TYPE_CD' AND SCODE = C.MAT_OUT_TYPE_CD ) AS GUBUN
+                      ,C.OUT_DT      AS DT
+                      ,C.OUT_CNT AS QTY
+                      ,C.LOTID      AS LOTID
+                      ,#{searchLotId} AS PROD_PO_NO
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT MAT_CUST_CD FROM MCC010 WHERE MAT_CD = C.MAT_CD)) AS MAT_CUST_NM
+                      ,C.MAT_CD     AS MAT_CD
+                      ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = C.MAT_CD) AS MAT_NM
+                FROM MMA024 C 
+                WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MWP012 WHERE LOTID = #{searchLotId})
+                </if>
+                <if test="lotDiv.equals('OT')">
+                SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_IN_TYPE_CD' AND SCODE = B.MAT_IN_TYPE_CD ) AS GUBUN
+                      ,B.IN_DT           AS DT
+                      ,B.IN_CNT AS QTY
+                      ,B.LOTID          AS LOTID
+                      ,'N/A' AS PROD_PO_NO
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT MAT_CUST_CD FROM MCC010 WHERE MAT_CD = B.MAT_CD)) AS MAT_CUST_NM
+                      ,B.MAT_CD         AS MAT_CD
+                      ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = B.MAT_CD) AS MAT_NM
+                FROM MMA022 B
+                WHERE B.LOTID IN (SELECT LOTID FROM MMA024 WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MWP015 WHERE LOT_OUT_ID = #{searchLotId}))
+                UNION ALL
+                SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_OUT_TYPE_CD' AND SCODE = C.MAT_OUT_TYPE_CD ) AS GUBUN
+                      ,C.OUT_DT      AS DT
+                      ,C.OUT_CNT AS QTY
+                      ,C.LOTID      AS LOTID
+                      ,#{searchLotId} AS PROD_PO_NO
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT MAT_CUST_CD FROM MCC010 WHERE MAT_CD = C.MAT_CD)) AS MAT_CUST_NM
+                      ,C.MAT_CD     AS MAT_CD
+                      ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = C.MAT_CD) AS MAT_NM
+                FROM MMA024 C 
+                WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MWP015 WHERE LOT_OUT_ID = #{searchLotId})
+                </if>
+                <if test="lotDiv.equals('MT')">
+                SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_IN_TYPE_CD' AND SCODE = B.MAT_IN_TYPE_CD ) AS GUBUN
+                      ,B.IN_DT           AS DT
+                      ,B.IN_CNT AS QTY
+                      ,B.LOTID          AS LOTID
+                      ,'N/A' AS PROD_PO_NO
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT MAT_CUST_CD FROM MCC010 WHERE MAT_CD = B.MAT_CD)) AS MAT_CUST_NM
+                      ,B.MAT_CD         AS MAT_CD
+                      ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = B.MAT_CD) AS MAT_NM
+                FROM MMA022 B
+                WHERE B.LOTID = #{searchLotId}
+                UNION ALL
+                SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_OUT_TYPE_CD' AND SCODE = A.MAT_OUT_TYPE_CD ) AS GUBUN
+                      ,A.OUT_DT      AS DT
+                      ,A.OUT_CNT AS QTY
+                      ,A.LOTID      AS LOTID
+                      ,(SELECT PROD_PO_NO FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ) AS PROD_PO_NO
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT MAT_CUST_CD FROM MCC010 WHERE MAT_CD = A.MAT_CD)) AS MAT_CUST_NM
+                      ,A.MAT_CD     AS MAT_CD
+                      ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = A.MAT_CD) AS MAT_NM
+                FROM MMA024 A 
+                WHERE A.LOTID = #{searchLotId}
+                </if>
+                <if test="lotDiv.equals('PO')">
+                SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_IN_TYPE_CD' AND SCODE = B.MAT_IN_TYPE_CD ) AS GUBUN
+                      ,B.IN_DT           AS DT
+                      ,B.IN_CNT AS QTY
+                      ,B.LOTID          AS LOTID
+                      ,'N/A' AS PROD_PO_NO
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT MAT_CUST_CD FROM MCC010 WHERE MAT_CD = B.MAT_CD)) AS MAT_CUST_NM
+                      ,B.MAT_CD         AS MAT_CD
+                      ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = B.MAT_CD) AS MAT_NM
+                FROM MMA022 B
+                WHERE B.LOTID IN (SELECT LOTID FROM MMA024 WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MPO009 WHERE PROD_PO_NO = #{searchLotId}))
+                UNION ALL
+                SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_OUT_TYPE_CD' AND SCODE = C.MAT_OUT_TYPE_CD ) AS GUBUN
+                      ,C.OUT_DT      AS DT
+                      ,C.OUT_CNT AS QTY
+                      ,C.LOTID      AS LOTID
+                      ,#{searchLotId} AS PROD_PO_NO
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT MAT_CUST_CD FROM MCC010 WHERE MAT_CD = C.MAT_CD)) AS MAT_CUST_NM
+                      ,C.MAT_CD     AS MAT_CD
+                      ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = C.MAT_CD) AS MAT_NM
+                FROM MMA024 C 
+                WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MPO009 WHERE PROD_PO_NO = #{searchLotId})
+                </if>
+              ) A
+    </select>
+    
+    <select id="searchLotTrackingWorkSumList" parameterType="org.rnt.summary.vo.LotTrackingVO" resultType="org.rnt.summary.vo.LotTrackingWorkSumVO">
+        SELECT TO_CHAR(TO_DATE(A.WORK_DT,'YYYYMMDD'),'YYYY/MM/DD') AS WORK_DT
+             , A.OPER_NM
+             , A.SABUN_NM
+             , TO_CHAR(TO_TIMESTAMP(A.WORKST_DT,'YYYYMMDDHH24MISS'),'YYYY/MM/DD HH24:MI:SS') AS WORKST_DT
+             , TO_CHAR(TO_TIMESTAMP(A.WORKED_DT,'YYYYMMDDHH24MISS'),'YYYY/MM/DD HH24:MI:SS') AS WORKED_DT
+             , '' AS EQUIP_CD
+             , '' AS EQUIP_NM
+             , TO_CHAR(A.ACTOK_QTY, 'FM99,999,999') AS ACTOK_QTY
+             , TO_CHAR(A.ACTBAD_QTY, 'FM99,999,999') AS ACTBAD_QTY
+          FROM (
+                <if test="lotDiv.equals('IT')">
+                SELECT WORK_DT
+                      ,(SELECT OPER_NM FROM MCC030 WHERE OPER_CD = A.OPER_CD) AS OPER_NM
+                      ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.SABUN_ID) AS SABUN_NM
+                      ,WORKST_DT
+                      ,WORKED_DT
+                      ,'' AS EQUIP_CD
+                      ,COALESCE(ACTOK_QTY,0) AS ACTOK_QTY
+                      ,COALESCE(ACTBAD_QTY,0) AS ACTBAD_QTY
+                FROM MPO011 A
+                WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MWP012 WHERE LOTID = #{searchLotId})
+                  AND PROD_TYPE_CD = 'END'
+                </if>
+                <if test="lotDiv.equals('OT')">
+                SELECT WORK_DT
+                      ,(SELECT OPER_NM FROM MCC030 WHERE OPER_CD = A.OPER_CD) AS OPER_NM
+                      ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.SABUN_ID) AS SABUN_NM
+                      ,WORKST_DT
+                      ,WORKED_DT
+                      ,'' AS EQUIP_CD
+                      ,COALESCE(ACTOK_QTY,0) AS ACTOK_QTY
+                      ,COALESCE(ACTBAD_QTY,0) AS ACTBAD_QTY
+                FROM MPO011 A
+                WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MWP015 WHERE LOT_OUT_ID = #{searchLotId})
+                  AND PROD_TYPE_CD = 'END'
+                </if>
+                <if test="lotDiv.equals('MT')">
+                SELECT WORK_DT
+                      ,(SELECT OPER_NM FROM MCC030 WHERE OPER_CD = A.OPER_CD) AS OPER_NM
+                      ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.SABUN_ID) AS SABUN_NM 
+                      ,WORKST_DT
+                      ,WORKED_DT
+                      ,'' AS EQUIP_CD
+                      ,COALESCE(ACTOK_QTY,0) AS ACTOK_QTY
+                      ,COALESCE(ACTBAD_QTY,0) AS ACTBAD_QTY
+                FROM MPO011 A
+                WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MMA024 WHERE LOTID = #{searchLotId})
+                  AND PROD_TYPE_CD = 'END'
+                </if>
+                <if test="lotDiv.equals('PO')">
+                SELECT WORK_DT
+                      ,(SELECT OPER_NM FROM MCC030 WHERE OPER_CD = A.OPER_CD) AS OPER_NM
+                      ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.SABUN_ID) AS SABUN_NM
+                      ,WORKST_DT
+                      ,WORKED_DT
+                      ,'' AS EQUIP_CD
+                      ,COALESCE(ACTOK_QTY,0) AS ACTOK_QTY
+                      ,COALESCE(ACTBAD_QTY,0) AS ACTBAD_QTY
+                FROM MPO011 A
+                WHERE PROD_SEQ IN (SELECT PROD_SEQ FROM MPO009 WHERE PROD_PO_NO = #{searchLotId})
+                  AND PROD_TYPE_CD = 'END'
+                </if>
+                ) A
+                ORDER BY WORK_DT, EQUIP_CD
+    </select>
+    
+    <select id="searchLotTrackingItemOutList" parameterType="org.rnt.summary.vo.LotTrackingVO" resultType="org.rnt.summary.vo.LotTrackingItemOutVO">
+        SELECT TO_CHAR(TO_DATE(A.ITEMOUT_DT,'YYYYMMDD'),'YYYY/MM/DD') AS ITEMOUT_DT
+             , A.CUST_NM
+             , TO_CHAR(A.OUT_QTY, 'FM99,999,999') AS OUT_QTY
+             , A.BOX_CNT
+             , A.SABUN_NM
+          FROM (
+                <if test="lotDiv.equals('IT')">
+                SELECT B.ITEMOUT_DT
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = B.CUST_CD) AS CUST_NM
+                      ,B.OUT_QTY
+                      ,(SELECT COUNT(*) FROM MWP016 WHERE LOT_OUT_ID = B.LOT_OUT_ID) AS BOX_CNT
+                      ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = B.WRITE_ID) AS SABUN_NM
+                FROM MWP015 B
+                WHERE ITEM_OUT_TYPE_CD = 'OUT'
+                  AND LOTID = #{searchLotId}
+                </if>
+                <if test="lotDiv.equals('OT')">
+                SELECT A.ITEMOUT_DT
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = A.CUST_CD) AS CUST_NM
+                      ,A.OUT_QTY
+                      ,(SELECT COUNT(*) FROM MWP016 WHERE LOT_OUT_ID = A.LOT_OUT_ID) AS BOX_CNT
+                      ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.WRITE_ID) AS SABUN_NM
+                FROM MWP015 A
+                WHERE A.LOT_OUT_ID = #{searchLotId}
+                  AND A.ITEM_OUT_TYPE_CD = 'OUT'
+                </if>
+                <if test="lotDiv.equals('MT')">
+                SELECT C.ITEMOUT_DT
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = C.CUST_CD) AS CUST_NM
+                      ,C.OUT_QTY
+                      ,(SELECT COUNT(*) FROM MWP016 WHERE LOT_OUT_ID = C.LOT_OUT_ID) AS BOX_CNT
+                      ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = C.WRITE_ID) AS SABUN_NM
+                FROM MWP015 C
+                WHERE ITEM_OUT_TYPE_CD = 'OUT'
+                  AND PROD_SEQ IN (SELECT PROD_SEQ FROM MMA024 WHERE LOTID = #{searchLotId})
+                </if>
+                <if test="lotDiv.equals('PO')">
+                SELECT B.ITEMOUT_DT
+                      ,(SELECT CUST_NM FROM MCC025 WHERE CUST_CD = B.CUST_CD) AS CUST_NM
+                      ,B.OUT_QTY
+                      ,(SELECT COUNT(*) FROM MWP016 WHERE LOT_OUT_ID = B.LOT_OUT_ID) AS BOX_CNT
+                      ,(SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = B.WRITE_ID) AS SABUN_NM
+                FROM MPO009 A INNER JOIN MWP015 B ON (A.PROD_SEQ = B.PROD_SEQ)
+                WHERE A.PROD_PO_NO = #{searchLotId}
+                  AND B.ITEM_OUT_TYPE_CD = 'OUT'
+                </if>
+                ) A
+    </select>
+    
+    <select id="searchSafetyStockList" parameterType="org.rnt.summary.vo.SafetyStockVO" resultType="org.rnt.summary.vo.SafetyStockVO">
+         SELECT *
+         FROM(
+            SELECT A.* 
+                    <if test="sortCol != null">
+                      , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                    </if>
+                    <if test="sortCol == null">
+                      , ROW_NUMBER() OVER(ORDER BY SAFE_STOCK_QTY  <![CDATA[<=]]>TOT_QTY ASC) AS RNUM
+                    </if>
+            FROM(
+               SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_TYPE_CD' AND SCODE = A.MAT_TYPE_CD) AS NM_TYPE
+                    , A.MAT_CD
+                    , A.MAT_NM
+                    , A.SAFE_STOCK_QTY
+                    , B.TOT_QTY
+               FROM (  
+                  SELECT MAT_TYPE_CD,MAT_CD, MAT_NM, SAFE_STOCK_QTY FROM MCC010 WHERE SAFE_STOCK_YN = 'Y'
+               ) A LEFT OUTER JOIN (
+                  SELECT MAT_CD, SUM(IN_CNT-IN_BAD_CNT) - SUM(GOUT_CNT)  + SUM(GRNT_QTY) - SUM(DISUSE_QTY) + SUM(MODIFY_QTY)  AS TOT_QTY
+                  FROM (
+                     SELECT MAT_CD, IN_CNT,IN_BAD_CNT, 0 AS GOUT_CNT , 0 AS GRNT_QTY , 0 AS DISUSE_QTY, 0 AS MODIFY_QTY
+                     FROM MMA022
+                  UNION ALL
+                  SELECT MAT_CD, 0 AS IN_CNT,0 AS IN_BAD_CNT 
+                       , CASE WHEN MAT_OUT_TYPE_CD = 'GOUT' THEN OUT_CNT ELSE 0 END AS GOUT_QTY 
+                       , CASE WHEN MAT_OUT_TYPE_CD = 'GRNT' THEN OUT_CNT ELSE 0 END AS GRNT_QTY
+                       , CASE WHEN MAT_OUT_TYPE_CD = 'DISUSE' THEN OUT_CNT ELSE 0 END AS DISUSE_QTY
+                       , CASE WHEN MAT_OUT_TYPE_CD = 'MODIFY' THEN OUT_CNT ELSE 0 END AS MODIFY_QTY
+                  FROM MMA024
+                  ) A
+               GROUP BY MAT_CD
+               ) B ON A.MAT_CD = B.MAT_CD
+               UNION ALL
+               SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_TYPE_CD' AND SCODE = A.ITEM_TYPE_CD) AS  NM_TYPE 
+                    , A.ITEM_CD
+                    , A.ITEM_NM
+                    , A.SAFE_STOCK_QTY
+                    , B.TOT_QTY
+               FROM(
+                  SELECT ITEM_TYPE_CD, ITEM_CD, ITEM_NM, SAFE_STOCK_QTY FROM MCC016 WHERE SAFE_STOCK_YN = 'Y'
+               ) A LEFT OUTER JOIN(
+                  SELECT ITEM_CD, SUM(ITEM_IN_QTY) - SUM(ITEM_IN_CAN_QTY) - SUM(ITEM_OUT_QTY) + SUM(ITEM_OUT_CAN_QTY) + SUM(ITEM_MODIFY_QTY) AS TOT_QTY  
+                  FROM (
+                     SELECT ITEM_CD 
+                          , CASE WHEN ITEM_IN_TYPE_CD = 'IN' THEN INOK_QTY END AS ITEM_IN_QTY
+                          , CASE WHEN ITEM_IN_TYPE_CD = 'IN_CAN' THEN INOK_QTY END AS ITEM_IN_CAN_QTY
+                          , 0 AS ITEM_OUT_QTY
+                          , 0 AS ITEM_OUT_CAN_QTY
+                          , 0 AS ITEM_MODIFY_QTY
+                     FROM MWP012
+                     UNION ALL
+                     SELECT ITEM_CD , 0 AS ITEM_IN_QTY , 0 AS ITEM_IN_CAN_QTY
+                          , CASE WHEN ITEM_OUT_TYPE_CD = 'OUT' THEN OUT_QTY END AS ITEM_OUT_QTY
+                          , CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_CAN' THEN OUT_QTY END AS ITEM_OUT_CAN_QTY
+                          , CASE WHEN ITEM_OUT_TYPE_CD = 'MODIFY' THEN OUT_QTY END AS ITEM_MODIFY_QTY
+                     FROM MWP015
+                  ) A
+               GROUP BY ITEM_CD   
+               ) B ON A.ITEM_CD = B.ITEM_CD
+            ) A
+            WHERE 1=1
+            <if test="searchLackAllType =='LACK' || searchLackAllType == null || searchLackAllType ==''">
+              AND SAFE_STOCK_QTY >= TOT_QTY
+            </if> 
+            <if test="searchItemMaterialType !='' and searchItemMaterialType != null ">
+              AND NM_TYPE = #{searchItemMaterialType}
+            </if>
+         ) A
+        <if test="isPaging">
+        <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+    <select id="searchSafetyStockListTotCnt" parameterType="org.rnt.summary.vo.SafetyStockVO" resultType="java.lang.Integer">
+            SELECT COUNT(*) AS TOT_CNT
+            FROM(
+               SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_TYPE_CD' AND SCODE = A.MAT_TYPE_CD) AS NM_TYPE
+                    , A.MAT_CD
+                    , A.MAT_NM
+                    , A.SAFE_STOCK_QTY
+                    , B.TOT_QTY
+               FROM (  
+                  SELECT MAT_TYPE_CD,MAT_CD, MAT_NM, SAFE_STOCK_QTY FROM MCC010 WHERE SAFE_STOCK_YN = 'Y'
+               ) A LEFT OUTER JOIN (
+                  SELECT MAT_CD, SUM(IN_CNT-IN_BAD_CNT) - SUM(GOUT_CNT)  + SUM(GRNT_QTY) - SUM(DISUSE_QTY) + SUM(MODIFY_QTY)  AS TOT_QTY
+                  FROM (
+                     SELECT MAT_CD, IN_CNT,IN_BAD_CNT, 0 AS GOUT_CNT , 0 AS GRNT_QTY , 0 AS DISUSE_QTY, 0 AS MODIFY_QTY
+                     FROM MMA022
+                  UNION ALL
+                  SELECT MAT_CD, 0 AS IN_CNT,0 AS IN_BAD_CNT 
+                       , CASE WHEN MAT_OUT_TYPE_CD = 'GOUT' THEN OUT_CNT ELSE 0 END AS GOUT_QTY 
+                       , CASE WHEN MAT_OUT_TYPE_CD = 'GRNT' THEN OUT_CNT ELSE 0 END AS GRNT_QTY
+                       , CASE WHEN MAT_OUT_TYPE_CD = 'DISUSE' THEN OUT_CNT ELSE 0 END AS DISUSE_QTY
+                       , CASE WHEN MAT_OUT_TYPE_CD = 'MODIFY' THEN OUT_CNT ELSE 0 END AS MODIFY_QTY
+                  FROM MMA024
+                  ) A
+               GROUP BY MAT_CD
+               ) B ON A.MAT_CD = B.MAT_CD
+               UNION ALL
+               SELECT (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_TYPE_CD' AND SCODE = A.ITEM_TYPE_CD) AS  NM_TYPE 
+                    , A.ITEM_CD
+                    , A.ITEM_NM
+                    , A.SAFE_STOCK_QTY
+                    , B.TOT_QTY
+               FROM(
+                  SELECT ITEM_TYPE_CD, ITEM_CD, ITEM_NM, SAFE_STOCK_QTY FROM MCC016 WHERE SAFE_STOCK_YN = 'Y'
+               ) A LEFT OUTER JOIN(
+                  SELECT ITEM_CD, SUM(ITEM_IN_QTY) - SUM(ITEM_IN_CAN_QTY) - SUM(ITEM_OUT_QTY) + SUM(ITEM_OUT_CAN_QTY) + SUM(ITEM_MODIFY_QTY) AS TOT_QTY  
+                  FROM (
+                     SELECT ITEM_CD 
+                          , CASE WHEN ITEM_IN_TYPE_CD = 'IN' THEN INOK_QTY END AS ITEM_IN_QTY
+                          , CASE WHEN ITEM_IN_TYPE_CD = 'IN_CAN' THEN INOK_QTY END AS ITEM_IN_CAN_QTY
+                          , 0 AS ITEM_OUT_QTY
+                          , 0 AS ITEM_OUT_CAN_QTY
+                          , 0 AS ITEM_MODIFY_QTY
+                     FROM MWP012
+                     UNION ALL
+                     SELECT ITEM_CD , 0 AS ITEM_IN_QTY , 0 AS ITEM_IN_CAN_QTY
+                          , CASE WHEN ITEM_OUT_TYPE_CD = 'OUT' THEN OUT_QTY END AS ITEM_OUT_QTY
+                          , CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_CAN' THEN OUT_QTY END AS ITEM_OUT_CAN_QTY
+                          , CASE WHEN ITEM_OUT_TYPE_CD = 'MODIFY' THEN OUT_QTY END AS ITEM_MODIFY_QTY
+                     FROM MWP015
+                  ) A
+               GROUP BY ITEM_CD   
+               ) B ON A.ITEM_CD = B.ITEM_CD
+            ) A
+            WHERE 1=1
+            <if test="searchLackAllType =='LACK' || searchLackAllType == null || searchLackAllType ==''">
+              AND SAFE_STOCK_QTY >= TOT_QTY
+            </if> 
+            <if test="searchItemMaterialType !='' and searchItemMaterialType != null ">
+              AND NM_TYPE = #{searchItemMaterialType}
+            </if>
+         
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 작지별 생산현황                                                                                                                                                                                                                                       -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchWorkOrderBySumList" parameterType="org.rnt.summary.vo.WorkOrderBySumVO" resultType="org.rnt.summary.vo.WorkOrderBySumVO">
+        SELECT *
+        FROM (
+            SELECT A.PROD_PO_NO
+                 , TO_CHAR(TO_DATE(A.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+                 , A.ITEM_CD
+                 , A.ITEM_NM
+                 , TO_CHAR(A.PO_QTY, 'FM99,999,999') AS PO_QTY
+                 , TO_CHAR(A.ACTOK_QTY, 'FM99,999,999') AS ACTOK_QTY
+                 , TO_CHAR(A.CHECK_QTY, 'FM99,999,999') AS CHECK_QTY
+                 , TO_CHAR(A.INOK_QTY, 'FM99,999,999') AS INOK_QTY
+                 , TO_CHAR(A.OUT_QTY, 'FM99,999,999') AS OUT_QTY
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY PO_CALLDT ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT A.PROD_PO_NO
+                      ,A.PO_CALLDT -- 작업지시일자
+                      ,A.ITEM_CD -- 제품
+                      ,B.ITEM_NM
+                      ,PO_QTY -- 작업지시 수량
+                      ,(SELECT COALESCE(SUM(ACTOK_QTY), 0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                      ,(SELECT COALESCE(SUM(CHECK_QTY), 0) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                      ,(SELECT COALESCE(SUM(INOK_QTY), 0)  FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                      ,(SELECT COALESCE(SUM(OUT_QTY), 0)   FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+                FROM MPO009 A 
+                     INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                         AND B.ITEM_CD = A.ITEM_CD
+               WHERE 1=1
+               <if test="searchFromDate != null and searchFromDate != ''">
+                 AND A.PO_CALLDT >= #{searchFromDate}
+               </if>
+               <if test="searchToDate != null and searchToDate != ''">
+                 AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+               </if>
+               <if test="searchItemNm != null and searchItemNm != ''">
+                 AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+               </if>
+                ) A
+            ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchWorkOrderBySumListTotCnt" parameterType="org.rnt.summary.vo.ProductionSumVO" resultType="java.lang.Integer">
+        SELECT COUNT(PO_CALLDT) AS TOT_CNT
+        FROM (SELECT A.PO_CALLDT -- 작업지시일자
+                  ,A.ITEM_CD -- 제품
+                  ,B.ITEM_NM
+                  ,PO_QTY -- 작업지시 수량
+                  ,(SELECT SUM(ACTOK_QTY) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                  ,(SELECT SUM(CHECK_QTY) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                  ,(SELECT SUM(INOK_QTY) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                  ,(SELECT SUM(OUT_QTY) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+            FROM MPO009 A 
+                 INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                     AND B.ITEM_CD = A.ITEM_CD
+           WHERE 1=1
+           <if test="searchFromDate != null and searchFromDate != ''">
+                AND A.PO_CALLDT >= #{searchFromDate}
+              </if>
+              <if test="searchToDate != null and searchToDate != ''">
+                AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+              </if>
+              <if test="searchItemNm != null and searchItemNm != ''">
+                AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+              </if>
+        ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 공정 현황                                                                                                                                                                                                                                                -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchOperSumList" parameterType="org.rnt.summary.vo.OperSumVO" resultType="org.rnt.summary.vo.OperSumVO">
+        SELECT *
+        FROM (
+            SELECT A.OPER_CD
+                 , A.OPER_NM
+                 , TO_CHAR(TO_DATE(A.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+                 , A.ITEM_CD
+                 , A.ITEM_NM
+                 , TO_CHAR(A.PO_QTY, 'FM99,999,999') AS PO_QTY
+                 , TO_CHAR(A.ACTOK_QTY, 'FM99,999,999') AS ACTOK_QTY
+                 , TO_CHAR(A.CHECK_QTY, 'FM99,999,999') AS CHECK_QTY
+                 , TO_CHAR(A.INOK_QTY, 'FM99,999,999') AS INOK_QTY
+                 , TO_CHAR(A.OUT_QTY, 'FM99,999,999') AS OUT_QTY
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY PO_CALLDT ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT A.OPER_CD
+                      , (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = A.OPER_CD) AS OPER_NM
+                      , (SELECT PO_CALLDT FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ LIMIT 1) AS PO_CALLDT -- 작업지시일자
+                      , A.ITEM_CD -- 제품
+                      , B.ITEM_NM
+                      , PO_QTY -- 작업지시 수량
+                      , (SELECT COALESCE(SUM(ACTOK_QTY), 0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                      , (SELECT COALESCE(SUM(CHECK_QTY), 0) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                      , (SELECT COALESCE(SUM(INOK_QTY), 0) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                      , (SELECT COALESCE(SUM(OUT_QTY), 0) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+                FROM MPO011 A 
+               INNER JOIN MCC016 B 
+                 ON (B.FACTORY_CD = A.FACTORY_CD
+                    AND B.ITEM_CD = A.ITEM_CD)
+                ) A
+                WHERE 1=1
+               <if test="searchFromDate != null and searchFromDate != ''">
+                 AND A.PO_CALLDT >= #{searchFromDate}
+               </if>
+               <if test="searchToDate != null and searchToDate != ''">
+                 AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+               </if>
+               <if test="searchItemCd != null and searchItemCd != ''">
+                 AND A.ITEM_CD   = #{searchItemCd}
+               </if>
+               <if test="searchOperCd != null and searchOperCd != ''">
+                 AND A.OPER_CD = #{searchOperCd}
+               </if>
+            ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchOperSumListTotCnt" parameterType="org.rnt.summary.vo.OperSumVO" resultType="java.lang.Integer">
+        SELECT COUNT(PO_CALLDT) AS TOT_CNT
+        FROM (SELECT A.PO_CALLDT -- 작업지시일자
+                  ,A.ITEM_CD -- 제품
+                  ,B.ITEM_NM
+                  ,PO_QTY -- 작업지시 수량
+                  ,(SELECT SUM(ACTOK_QTY) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                  ,(SELECT SUM(CHECK_QTY) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                  ,(SELECT SUM(INOK_QTY) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                  ,(SELECT SUM(OUT_QTY) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+            FROM MPO009 A 
+                 INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                     AND B.ITEM_CD = A.ITEM_CD
+           WHERE 1=1
+           <if test="searchFromDate != null and searchFromDate != ''">
+                AND A.PO_CALLDT >= #{searchFromDate}
+              </if>
+              <if test="searchToDate != null and searchToDate != ''">
+                AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+              </if>
+              <if test="searchItemNm != null and searchItemNm != ''">
+                AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+              </if>
+        ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 제품 현황                                                                                         -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchItemSumList" parameterType="org.rnt.summary.vo.ItemSumVO" resultType="org.rnt.summary.vo.ItemSumVO">
+        SELECT *
+        FROM (
+            SELECT TO_CHAR(TO_DATE(A.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+                 , A.ITEM_CD
+                 , A.ITEM_NM
+                 , TO_CHAR(A.PO_QTY, 'FM99,999,999') AS PO_QTY
+                 , TO_CHAR(A.ACTOK_QTY, 'FM99,999,999') AS ACTOK_QTY
+                 , TO_CHAR(A.CHECK_QTY, 'FM99,999,999') AS CHECK_QTY
+                 , TO_CHAR(A.INOK_QTY, 'FM99,999,999') AS INOK_QTY
+                 , TO_CHAR(A.OUT_QTY, 'FM99,999,999') AS OUT_QTY
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY PO_CALLDT ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT A.PO_CALLDT -- 작업지시일자
+                      ,A.ITEM_CD -- 제품
+                      ,B.ITEM_NM
+                      ,PO_QTY -- 작업지시 수량
+                      ,(SELECT COALESCE(SUM(ACTOK_QTY), 0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                      ,(SELECT COALESCE(SUM(CHECK_QTY), 0) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                      ,(SELECT COALESCE(SUM(INOK_QTY), 0) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                      ,(SELECT COALESCE(SUM(OUT_QTY), 0) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+                FROM MPO009 A 
+                     INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                         AND B.ITEM_CD = A.ITEM_CD
+               WHERE 1=1
+               <if test="searchFromDate != null and searchFromDate != ''">
+                 AND A.PO_CALLDT >= #{searchFromDate}
+               </if>
+               <if test="searchToDate != null and searchToDate != ''">
+                 AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+               </if>
+               <if test="searchItemNm != null and searchItemNm != ''">
+                 AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+               </if>
+                ) A
+            ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchItemSumListTotCnt" parameterType="org.rnt.summary.vo.ItemSumVO" resultType="java.lang.Integer">
+        SELECT COUNT(PO_CALLDT) AS TOT_CNT
+        FROM (SELECT A.PO_CALLDT -- 작업지시일자
+                  ,A.ITEM_CD -- 제품
+                  ,B.ITEM_NM
+                  ,PO_QTY -- 작업지시 수량
+                  ,(SELECT SUM(ACTOK_QTY) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                  ,(SELECT SUM(CHECK_QTY) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                  ,(SELECT SUM(INOK_QTY) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                  ,(SELECT SUM(OUT_QTY) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+            FROM MPO009 A 
+                 INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                     AND B.ITEM_CD = A.ITEM_CD
+           WHERE 1=1
+           <if test="searchFromDate != null and searchFromDate != ''">
+                AND A.PO_CALLDT >= #{searchFromDate}
+              </if>
+              <if test="searchToDate != null and searchToDate != ''">
+                AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+              </if>
+              <if test="searchItemNm != null and searchItemNm != ''">
+                AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+              </if>
+        ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 품질 현황                                                                                         -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchFailureSumList" parameterType="org.rnt.summary.vo.FailureSumVO" resultType="org.rnt.summary.vo.FailureSumVO">
+        SELECT *
+        FROM (
+            SELECT TO_CHAR(TO_DATE(A.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+                 , A.ITEM_CD
+                 , A.ITEM_NM
+                 , TO_CHAR(A.PO_QTY, 'FM99,999,999') AS PO_QTY
+                 , TO_CHAR(A.ACTOK_QTY, 'FM99,999,999') AS ACTOK_QTY
+                 , TO_CHAR(A.CHECK_QTY, 'FM99,999,999') AS CHECK_QTY
+                 , TO_CHAR(A.INOK_QTY, 'FM99,999,999') AS INOK_QTY
+                 , TO_CHAR(A.OUT_QTY, 'FM99,999,999') AS OUT_QTY
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY PO_CALLDT ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT A.PO_CALLDT -- 작업지시일자
+                      ,A.ITEM_CD -- 제품
+                      ,B.ITEM_NM
+                      ,PO_QTY -- 작업지시 수량
+                      ,(SELECT COALESCE(SUM(ACTOK_QTY), 0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                      ,(SELECT COALESCE(SUM(CHECK_QTY), 0) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                      ,(SELECT COALESCE(SUM(INOK_QTY), 0) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                      ,(SELECT COALESCE(SUM(OUT_QTY), 0) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+                FROM MPO009 A 
+                     INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                         AND B.ITEM_CD = A.ITEM_CD
+               WHERE 1=1
+               <if test="searchFromDate != null and searchFromDate != ''">
+                 AND A.PO_CALLDT >= #{searchFromDate}
+               </if>
+               <if test="searchToDate != null and searchToDate != ''">
+                 AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+               </if>
+               <if test="searchItemNm != null and searchItemNm != ''">
+                 AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+               </if>
+                ) A
+            ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchFailureSumListTotCnt" parameterType="org.rnt.summary.vo.FailureSumVO" resultType="java.lang.Integer">
+        SELECT COUNT(PO_CALLDT) AS TOT_CNT
+        FROM (SELECT A.PO_CALLDT -- 작업지시일자
+                  ,A.ITEM_CD -- 제품
+                  ,B.ITEM_NM
+                  ,PO_QTY -- 작업지시 수량
+                  ,(SELECT SUM(ACTOK_QTY) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                  ,(SELECT SUM(CHECK_QTY) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                  ,(SELECT SUM(INOK_QTY) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                  ,(SELECT SUM(OUT_QTY) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+            FROM MPO009 A 
+                 INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                     AND B.ITEM_CD = A.ITEM_CD
+           WHERE 1=1
+           <if test="searchFromDate != null and searchFromDate != ''">
+                AND A.PO_CALLDT >= #{searchFromDate}
+              </if>
+              <if test="searchToDate != null and searchToDate != ''">
+                AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+              </if>
+              <if test="searchItemNm != null and searchItemNm != ''">
+                AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+              </if>
+        ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 배정 현황                                                                                         -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchAssignSumList" parameterType="org.rnt.summary.vo.AssignSumVO" resultType="org.rnt.summary.vo.AssignSumVO">
+        SELECT *
+        FROM (
+            SELECT TO_CHAR(TO_DATE(A.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+                 , A.ITEM_CD
+                 , A.ITEM_NM
+                 , TO_CHAR(A.PO_QTY, 'FM99,999,999') AS PO_QTY
+                 , TO_CHAR(A.ACTOK_QTY, 'FM99,999,999') AS ACTOK_QTY
+                 , TO_CHAR(A.CHECK_QTY, 'FM99,999,999') AS CHECK_QTY
+                 , TO_CHAR(A.INOK_QTY, 'FM99,999,999') AS INOK_QTY
+                 , TO_CHAR(A.OUT_QTY, 'FM99,999,999') AS OUT_QTY
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY PO_CALLDT ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT A.PO_CALLDT -- 작업지시일자
+                      ,A.ITEM_CD -- 제품
+                      ,B.ITEM_NM
+                      ,PO_QTY -- 작업지시 수량
+                      ,(SELECT COALESCE(SUM(ACTOK_QTY), 0) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                      ,(SELECT COALESCE(SUM(CHECK_QTY), 0) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                      ,(SELECT COALESCE(SUM(INOK_QTY), 0) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                      ,(SELECT COALESCE(SUM(OUT_QTY), 0) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+                FROM MPO009 A 
+                     INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                         AND B.ITEM_CD = A.ITEM_CD
+               WHERE 1=1
+               <if test="searchFromDate != null and searchFromDate != ''">
+                 AND A.PO_CALLDT >= #{searchFromDate}
+               </if>
+               <if test="searchToDate != null and searchToDate != ''">
+                 AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+               </if>
+               <if test="searchItemNm != null and searchItemNm != ''">
+                 AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+               </if>
+                ) A
+            ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchAssignSumListTotCnt" parameterType="org.rnt.summary.vo.AssignSumVO" resultType="java.lang.Integer">
+        SELECT COUNT(PO_CALLDT) AS TOT_CNT
+        FROM (SELECT A.PO_CALLDT -- 작업지시일자
+                  ,A.ITEM_CD -- 제품
+                  ,B.ITEM_NM
+                  ,PO_QTY -- 작업지시 수량
+                  ,(SELECT SUM(ACTOK_QTY) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ AND WORKED_DT IS NOT NULL) AS ACTOK_QTY  -- 양품수량
+                  ,(SELECT SUM(CHECK_QTY) FROM MQC001 WHERE PROD_SEQ = A.PROD_SEQ AND QM_STATE_CD = 'QM_END') AS CHECK_QTY -- 검품수량 
+                  ,(SELECT SUM(INOK_QTY) FROM MWP012 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_IN_TYPE_CD = 'IN') AS INOK_QTY   -- 완제품 입고 수량
+                  ,(SELECT SUM(OUT_QTY) FROM MWP015 WHERE PROD_SEQ = A.PROD_SEQ AND ITEM_OUT_TYPE_CD = 'OUT') AS OUT_QTY   -- 완제품 출하 수량 
+            FROM MPO009 A 
+                 INNER JOIN MCC016 B ON B.FACTORY_CD = A.FACTORY_CD
+                                     AND B.ITEM_CD = A.ITEM_CD
+           WHERE 1=1
+           <if test="searchFromDate != null and searchFromDate != ''">
+                AND A.PO_CALLDT >= #{searchFromDate}
+              </if>
+              <if test="searchToDate != null and searchToDate != ''">
+                AND A.PO_CALLDT <![CDATA[<=]]> #{searchToDate}
+              </if>
+              <if test="searchItemNm != null and searchItemNm != ''">
+                AND B.ITEM_NM LIKE '%' || #{searchItemNm} || '%'
+              </if>
+        ) A
+    </select>
+</mapper>

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="mcc001" >
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.CodeVO">
+        INSERT INTO MCC001 /* queryId: mcc001.insert */
+        (
+             FACTORY_CD
+            ,BCODE
+            ,SCODE
+            ,CODE_NM
+            ,SORT_ORDER
+            ,BIGO
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        ) VALUES(
+             #{factoryCd}
+            ,#{bcode}
+            ,#{scode}
+            ,#{codeNm}
+            ,#{sortOrder}
+            ,#{bigo}
+            ,'Y'
+            ,now()
+            ,#{writeId}
+            ,now()
+            ,#{updateId}
+        )
+    </insert>
+
+    <select id="select" resultType="org.rnt.com.entity.vo.CodeVO" parameterType="org.rnt.com.entity.vo.CodeVO">
+        SELECT /* queryId: mcc001.select */
+             FACTORY_CD
+            ,BCODE
+            ,SCODE
+            ,CODE_NM
+            ,SORT_ORDER
+            ,BIGO
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        FROM MCC001
+        WHERE FACTORY_CD = #{factoryCd}
+          AND BCODE = #{bcode}
+          AND SCODE = #{scode}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.CodeVO">
+        UPDATE MCC001 /* queryId: mcc001.update */
+        SET UPDATE_DT = NOW()
+           <if test="factoryCd != null">,FACTORY_CD = #{factoryCd}</if>
+           <if test="bcode != null">,BCODE = #{bcode}</if>
+           <if test="scode != null">,SCODE = #{scode}</if>
+           <if test="codeNm != null">,CODE_NM = #{codeNm}</if>
+           <if test="sortOrder != null">,SORT_ORDER = #{sortOrder}</if>
+           <if test="bigo != null">,BIGO = #{bigo}</if>
+           <if test="useYn != null">,USE_YN = #{useYn}</if>
+           <if test="updateId != null">,UPDATE_ID = #{updateId}</if>
+        WHERE FACTORY_CD = #{factoryCd}
+          AND BCODE = #{bcode}
+          AND SCODE = #{scode}
+    </update>
+
+    <delete id="delete" parameterType="org.rnt.com.entity.vo.CodeVO">
+        UPDATE MCC001
+        SET UPDATE_DT = NOW()
+           ,USE_YN = 'N'
+           ,UPDATE_ID = #{updateId}
+        WHERE FACTORY_CD = #{factoryCd}
+          AND BCODE = #{bcode}
+          AND SCODE = #{scode}
+    </delete>
+
+    <select id="searchList" resultType="org.rnt.com.entity.vo.CodeVO" parameterType="org.rnt.com.entity.vo.CodeVO">
+        SELECT /* queryId:pop_menu.searchList */
+             *
+        FROM (
+            SELECT FACTORY_CD
+                  ,BCODE
+                  ,SCODE
+                  ,CODE_NM
+                  ,SORT_ORDER
+                  ,BIGO
+                  ,USE_YN
+                  ,WRITE_DT
+                  ,WRITE_ID
+                  ,UPDATE_DT
+                  ,UPDATE_ID
+                  <if test="sortCol != null">
+                      ,ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                  </if>
+                  <if test="sortCol == null">
+                      ,ROW_NUMBER() OVER(ORDER BY FACTORY_CD, BCODE, SORT_ORDER) AS RNUM
+                  </if>
+              FROM MCC001 A
+              WHERE 1=1
+                AND USE_YN = 'Y'
+                <if test="bcode != null">  AND BCODE = #{bcode}</if>
+                <if test="searchCodeNm != null and searchCodeNm != ''">
+                    AND CODE_NM LIKE '%'||#{searchCodeNm}||'%'
+                </if>
+                <if test="searchComCodeNm != null and searchComCodeNm != ''">
+                    AND BCODE LIKE '%'||#{searchComCodeNm}||'%'
+                </if>
+          ) A
+          <if test="isPaging">
+              <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+          </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.CodeVO" resultType="java.lang.Integer">
+        SELECT COUNT(FACTORY_CD)
+        FROM MCC001
+        WHERE 1=1
+          AND USE_YN = 'Y'
+          <if test="searchCodeNm != null and searchCodeNm != ''">
+                    AND CODE_NM LIKE '%'||#{searchCodeNm}||'%'
+                </if>
+                <if test="searchComCodeNm != null and searchComCodeNm != ''">
+                    AND BCODE LIKE '%'||#{searchComCodeNm}||'%'
+                </if>
+    </select>
+</mapper>

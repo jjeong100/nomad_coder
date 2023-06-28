@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mpo011">
+
+    <select id="getSeq" resultType="String">
+       SELECT TABLE_SEQ_NEXTVAL('MPO011')
+    </select>
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.ProductionActVO">
+        INSERT INTO MPO011
+        (
+
+            FACTORY_CD
+            , WORKACT_SEQ
+            , PROD_WA_NO
+            , PROD_SEQ
+            , OPER_CD
+            , ITEM_CD
+            , WORK_DT
+            , WORKST_DT
+            , WORKED_DT
+            , PROD_TYPE_CD
+            , SABUN_ID
+            , PO_QTY
+            , ACTOK_QTY
+            , ACTBAD_QTY
+            , WORKACT_BIGO
+            , EQUIP_CD
+            , CONFIRM_YN
+            , USE_YN
+            , WRITE_DT
+            , WRITE_ID
+            , UPDATE_DT
+            , UPDATE_ID
+        ) VALUES (
+             #{factoryCd}
+            , #{workactSeq}
+            , EXT1_LOT_SEQ_NEXTVAL((SELECT PROD_PO_NO FROM MPO009 WHERE PROD_SEQ = #{prodSeq}))
+            , #{prodSeq}
+            , #{operCd}
+            , #{itemCd}
+            , #{workDt}
+            , #{workstDt}
+            , #{workedDt}
+            , #{prodTypeCd}
+            , #{sabunId}
+            , #{poQty}
+            , #{actokQty}
+            , #{actbadQty}
+            , #{workactBigo}
+            , #{equipCd}
+            , #{confirmYn}
+            , 'Y'
+            , now()
+            , #{writeId}
+            , now()
+            , #{updateId}
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.ProductionActVO" resultType="org.rnt.com.entity.vo.ProductionActVO">
+        SELECT A.FACTORY_CD
+             , A.WORKACT_SEQ
+             , A.PROD_WA_NO
+             , A.PROD_SEQ
+             , A.OPER_CD
+             , A.ITEM_CD
+             , (SELECT S.ITEM_NM FROM MCC016 S WHERE A.FACTORY_CD = S.FACTORY_CD AND A.ITEM_CD = S.ITEM_CD) AS ITEM_NM
+             , (SELECT S.PROD_PO_NO FROM MPO009 S WHERE A.FACTORY_CD = S.FACTORY_CD AND A.PROD_SEQ = S.PROD_SEQ) AS PROD_PO_NO
+             , TO_CHAR(TO_DATE(A.WORK_DT,'YYYYMMDD'),'YYYY/MM/DD') AS WORK_DT
+             , A.WORKST_DT
+             , A.WORKED_DT
+             , A.PROD_TYPE_CD
+             , A.SABUN_ID
+             , (SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.SABUN_ID) AS SABUN_NM
+             , COALESCE(A.PO_QTY,0) AS PO_QTY
+             , COALESCE(A.ACTOK_QTY,0) AS ACTOK_QTY
+             , COALESCE(A.ACTBAD_QTY,0) AS ACTBAD_QTY
+             , A.WORKACT_BIGO
+             , A.CONFIRM_YN
+             , A.EQUIP_CD
+             , (SELECT EQUIP_NM FROM MCC026 WHERE EQUIP_CD=A.EQUIP_CD) AS EQUIP_NM
+             , D.LAST_OPER_YN
+             , A.USE_YN
+             , A.WRITE_DT
+             , A.WRITE_ID
+             , A.UPDATE_DT
+             , A.UPDATE_ID
+          FROM MPO011 A
+                 INNER JOIN MCC016 B ON B.ITEM_CD = A.ITEM_CD
+                 INNER JOIN MPO010 D ON D.PROD_SEQ = A.PROD_SEQ
+                                       AND D.OPER_CD = A.OPER_CD
+         WHERE 1=1
+           AND A.FACTORY_CD  = #{factoryCd}
+           AND A.WORKACT_SEQ = #{workactSeq}
+    </select>
+
+    <select id="selectByProdAndOper" parameterType="org.rnt.com.entity.vo.ProductionActVO" resultType="org.rnt.com.entity.vo.ProductionActVO">
+        SELECT
+             PROD_SEQ
+            , OPER_CD
+            , COALESCE(SUM(PO_QTY),0)     AS PO_QTY
+            , COALESCE(SUM(CASE WHEN PROD_TYPE_CD = 'END' THEN ACTOK_QTY ELSE 0 END),0)  AS ACTOK_QTY
+            , COALESCE(SUM(CASE WHEN PROD_TYPE_CD = 'END' THEN ACTBAD_QTY ELSE 0 END),0) AS ACTBAD_QTY
+        FROM MPO011 A
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND PROD_SEQ   = #{searchProdSeq}
+          AND OPER_CD    = #{searchOperCd}
+          <if test="confirmYn != null">
+          AND CONFIRM_YN = #{confirmYn}
+          </if>
+        GROUP BY PROD_SEQ, OPER_CD
+    </select>
+
+    <select id="selectByProd" parameterType="org.rnt.com.entity.vo.ProductionActVO" resultType="org.rnt.com.entity.vo.ProductionActVO">
+        SELECT
+             PROD_SEQ
+            , COALESCE(MAX(PO_QTY),0)     AS PO_QTY
+            , COALESCE(SUM(ACTOK_QTY),0)  AS ACTOK_QTY
+            , COALESCE(SUM(ACTBAD_QTY),0) AS ACTBAD_QTY
+        FROM MPO011 A
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND PROD_SEQ   = #{searchProdSeq}
+        GROUP BY PROD_SEQ
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.ProductionActVO">
+        UPDATE MPO011
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            <if test="itemCd != null">                     , ITEM_CD = #{itemCd}</if>
+            <if test="workDt != null and workDt != ''">    , WORK_DT = REGEXP_REPLACE(#{workDt}, '[^0-9]', '', 'g')</if>
+            <if test="workstDt != null and workstDt != ''">, WORKST_DT = COALESCE(REGEXP_REPLACE(#{workstDt}, '[^0-9]', '', 'g'), TO_CHAR(now(),'YYYYMMDDHH24MMSS'))</if>
+            <if test="workedDt != null and workedDt != ''">, WORKED_DT = COALESCE(REGEXP_REPLACE(#{workedDt}, '[^0-9]', '', 'g'), TO_CHAR(now(),'YYYYMMDDHH24MMSS'))</if>
+            <if test="prodTypeCd != null">                 , PROD_TYPE_CD = #{prodTypeCd}</if>
+            <if test="sabunId != null">                    , SABUN_ID = #{sabunId}</if>
+            <if test="poQty != null">                      , PO_QTY = #{poQty}</if>
+            <if test="actokQty != null">                   , ACTOK_QTY = #{actokQty}</if>
+            <if test="actbadQty != null">                  , ACTBAD_QTY = #{actbadQty}</if>
+            <if test="workactBigo != null">                , WORKACT_BIGO = #{workactBigo}</if>
+            <if test="confirmYn != null">                  , CONFIRM_YN = #{confirmYn}</if>
+            <if test="useYn != null">                      , USE_YN = #{useYn}</if>
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND WORKACT_SEQ = #{workactSeq}
+    </update>
+
+    <update id="delete" parameterType="org.rnt.com.entity.vo.ProductionActVO">
+        UPDATE MPO011
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            ,USE_YN = 'N'
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND WORKACT_SEQ = #{workactSeq}
+    </update>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.ProductionActVO" resultType="org.rnt.com.entity.vo.ProductionActVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                  <if test="sortCol != null">
+                  , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                  </if>
+                  <if test="sortCol == null">
+                  , ROW_NUMBER() OVER(ORDER BY PROD_PO_NO DESC, WORKED_DT DESC NULLS FIRST) AS RNUM
+                  </if>
+            FROM (
+                SELECT A.FACTORY_CD
+                     , A.WORKACT_SEQ
+                     , A.PROD_WA_NO
+                     , A.PROD_SEQ
+                     , (SELECT PROD_PO_NO FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ) AS PROD_PO_NO
+                     , A.OPER_CD
+                     , (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = A.OPER_CD) AS OPER_NM
+                     , A.ITEM_CD
+                     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+                     , TO_CHAR(TO_DATE(A.WORK_DT,'YYYYMMDD'),'YYYY/MM/DD') AS WORK_DT
+                     , TO_CHAR(TO_TIMESTAMP(A.WORKST_DT,'YYYYMMDDHH24MISS'),'YYYY/MM/DD-HH24:MI:SS') AS WORKST_DT
+                     , TO_CHAR(TO_TIMESTAMP(A.WORKST_DT,'YYYYMMDDHH24MISS'),'HH24:MI') AS WORKST_HOUR
+                     , TO_CHAR(TO_TIMESTAMP(A.WORKED_DT,'YYYYMMDDHH24MISS'),'YYYY/MM/DD-HH24:MI:SS') WORKED_DT
+                     , TO_CHAR(TO_TIMESTAMP(A.WORKED_DT,'YYYYMMDDHH24MISS'),'HH24:MI') WORKED_HOUR
+                     , A.PROD_TYPE_CD
+                     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'PROD_TYPE_CD' AND SCODE = A.PROD_TYPE_CD ) AS PROD_TYPE_NM
+                     , A.SABUN_ID
+                     , (SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.SABUN_ID) AS SABUN_NM
+                     , A.EQUIP_CD
+                     , (SELECT EQUIP_NM FROM MCC026 WHERE EQUIP_CD=A.EQUIP_CD) AS EQUIP_NM
+                     , A.PO_QTY
+                     , COALESCE(A.ACTOK_QTY, 0) AS ACTOK_QTY
+                     , COALESCE(A.ACTBAD_QTY, 0) AS ACTBAD_QTY
+                     , COALESCE(A.ACTOK_QTY, 0) - COALESCE(A.ACTBAD_QTY, 0) AS RESIDUE_QTY
+                     , A.WORKACT_BIGO
+                     , A.CONFIRM_YN
+                     , A.USE_YN
+                     , A.WRITE_DT
+                     , A.WRITE_ID
+                     , A.UPDATE_DT
+                     , A.UPDATE_ID
+                     , (SELECT TO_CHAR(TO_DATE(PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') FROM MPO009 WHERE 1=1 AND USE_YN = 'Y' AND FACTORY_CD = A.FACTORY_CD AND PROD_SEQ = A.PROD_SEQ LIMIT 1) AS PO_CALLDT
+                FROM MPO011 A
+                     INNER JOIN MPO009 B ON B.FACTORY_CD = A.FACTORY_CD AND B.PROD_SEQ = A.PROD_SEQ
+                WHERE 1=1
+                  AND A.USE_YN = 'Y'
+                  <if test="searchProdSeq != null and searchProdSeq != ''">
+                      AND A.PROD_SEQ = #{searchProdSeq}
+                  </if>
+                  <if test="searchOperCd != null and searchOperCd != ''">
+                      AND A.OPER_CD = #{searchOperCd}
+                  </if>
+                  <if test="prodTypeCd != null and prodTypeCd != ''">
+                      AND A.PROD_TYPE_CD = #{prodTypeCd}
+                  </if>
+                  <if test="poCalldt != null and poCalldt != ''">
+                      AND (B.PO_CALLDT = REGEXP_REPLACE(#{poCalldt}, '[^0-9]', '', 'g') OR A.PROD_TYPE_CD = 'ING')
+                  </if>
+                  <if test="poCalldt == null or poCalldt == ''">
+                      <if test="searchFromDate != null and searchFromDate != ''">
+                          AND A.WRITE_DT BETWEEN TO_TIMESTAMP(#{searchFromDate}||'000000','YYYYMMDDHH24MISS') AND TO_TIMESTAMP(#{searchToDate}||'235959','YYYYMMDDHH24MISS')
+                      </if>
+                  </if>
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.ProductionActVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM MPO011 A
+             INNER JOIN MPO009 B ON B.FACTORY_CD = A.FACTORY_CD AND B.PROD_SEQ = A.PROD_SEQ
+        WHERE 1=1
+          AND A.USE_YN = 'Y'
+          <if test="searchProdSeq != null and searchProdSeq != ''">
+              AND A.PROD_SEQ = #{searchProdSeq}
+          </if>
+          <if test="searchOperCd != null and searchOperCd != ''">
+              AND A.OPER_CD = #{searchOperCd}
+          </if>
+          <if test="prodTypeCd != null and prodTypeCd != ''">
+              AND A.PROD_TYPE_CD = #{prodTypeCd}
+          </if>
+          <if test="poCalldt != null and poCalldt != ''">
+              AND (B.PO_CALLDT = REGEXP_REPLACE(#{poCalldt}, '[^0-9]', '', 'g') OR A.PROD_TYPE_CD = 'ING')
+          </if>
+          <if test="poCalldt == null or poCalldt == ''">
+              <if test="searchFromDate != null and searchFromDate != ''">
+               AND A.WRITE_DT BETWEEN TO_TIMESTAMP(#{searchFromDate}||'000000','YYYYMMDDHH24MISS') AND TO_TIMESTAMP(#{searchToDate}||'235959','YYYYMMDDHH24MISS')
+              </if>
+          </if>
+    </select>
+
+    <update id="updatePlcProdSeq" parameterType="org.rnt.com.entity.vo.ProductionActVO">
+        UPDATE MCC907
+           SET UPDATE_DT = NOW()
+             , PROD_SEQ  = #{prodSeq}
+        WHERE 1=1
+          AND EQUIP_CD = #{equipCd}
+    </update>
+
+    <select id="selectIngProdSeq" parameterType="org.rnt.com.entity.vo.ProductionActVO" resultType="org.rnt.com.entity.vo.ProductionActVO">
+        SELECT A.FACTORY_CD
+            , A.WORKACT_SEQ
+            , A.PROD_WA_NO
+            , A.PROD_SEQ
+            , A.OPER_CD
+            , A.ITEM_CD
+            , TO_CHAR(TO_DATE(A.WORK_DT,'YYYYMMDD'),'YYYY/MM/DD') AS WORK_DT
+            , A.WORKST_DT
+            , A.WORKED_DT
+            , A.PROD_TYPE_CD
+            , A.SABUN_ID
+            , A.PO_QTY
+            , COALESCE(A.PO_QTY,0) AS PO_QTY
+            , COALESCE(A.ACTOK_QTY,0) AS ACTOK_QTY
+            , COALESCE(A.ACTBAD_QTY,0) AS ACTBAD_QTY
+            , A.WORKACT_BIGO
+            , A.CONFIRM_YN
+            , A.USE_YN
+            , A.WRITE_DT
+            , A.WRITE_ID
+            , A.UPDATE_DT
+            , A.UPDATE_ID
+            , B.ITEM_NM
+         FROM MPO011 A
+              INNER JOIN MCC015 B ON A.FACTORY_CD = B.FACTORY_CD AND A.ITEM_CD = B.ITEM_CD
+        WHERE 1=1
+          AND A.FACTORY_CD = #{factoryCd}
+          AND A.USE_YN = 'Y'
+          AND A.OPER_CD = #{operCd}
+          AND A.PROD_TYPE_CD = #{prodTypeCd}
+          LIMIT 1
+    </select>
+
+    <select id="selectWorkEquiplist" parameterType="org.rnt.com.entity.vo.ProductionActVO" resultType="org.rnt.com.entity.vo.ProductionActVO">
+        SELECT A.*
+            , COALESCE(A.CAL_PO_QTY,0) - COALESCE(A.SUM_EQUIP_QTY,0) AS REM_EQUIP_QTY
+        FROM
+        (SELECT ROW_NUMBER() OVER(ORDER BY B.EQUIP_CD ASC NULLS FIRST) AS RNUM
+              , A.FACTORY_CD
+              , A.WORKACT_SEQ
+              , A.PROD_WA_NO
+              , A.PROD_SEQ
+              , A.OPER_CD
+              , A.ITEM_CD
+              , A.PO_QTY
+              , TO_CHAR(TO_DATE(A.WORK_DT,'YYYYMMDD'),'YYYY/MM/DD') AS WORK_DT
+              , A.WORKST_DT
+              , A.WORKED_DT
+              , A.PROD_TYPE_CD
+              , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'PROD_TYPE_CD' AND SCODE = A.PROD_TYPE_CD) AS PROD_TYPE_NM
+              , A.SABUN_ID
+              , A.PO_QTY
+              , COALESCE(A.ACTOK_QTY,0) AS ACTOK_QTY
+              , COALESCE(A.ACTBAD_QTY,0) AS ACTBAD_QTY
+              , A.WORKACT_BIGO
+              , A.CONFIRM_YN
+              , A.USE_YN
+              , A.WRITE_DT
+              , A.WRITE_ID
+              , A.UPDATE_DT
+              , A.UPDATE_ID
+              , COALESCE((SELECT PO_QTY FROM MPO009 WHERE 1=1 AND FACTORY_CD = #{factoryCd} AND PROD_SEQ = #{prodSeq}),0) AS CAL_PO_QTY
+          FROM MPO011 A
+          WHERE 1 = 1
+            ) A
+    </select>
+
+    <update id="deleteWat" parameterType="org.rnt.com.entity.vo.ProductionActVO">
+        DELETE FROM MPO011
+        WHERE 1=1
+          AND WORKACT_SEQ = #{workactSeq}
+    </update>
+
+    <!-- END -->
+    <update id="updateEndProdTypeCd" parameterType="org.rnt.com.entity.vo.ProductionActVO">
+        UPDATE MPO011
+        SET  UPDATE_DT     = NOW()
+            , UPDATE_ID    = #{updateId}
+            , PROD_TYPE_CD = #{prodTypeCd}
+            , WORK_DT      = COALESCE(WORK_DT,TO_CHAR(NOW(),'YYYYMMDD'))
+            , WORKST_DT    = TO_CHAR(NOW(),'YYYYMMDDHH24MISS')
+            , WORKED_DT    = TO_CHAR(NOW(),'YYYYMMDDHH24MISS')
+        WHERE 1=1
+          AND FACTORY_CD   = #{factoryCd}
+          AND PROD_SEQ     = #{prodSeq}
+    </update>
+
+    <!-- CAN,STP -->
+    <update id="updateProdTypeCd" parameterType="org.rnt.com.entity.vo.ProductionActVO">
+        UPDATE MPO011
+        SET  UPDATE_DT     = NOW()
+            , UPDATE_ID    = #{updateId}
+            , PROD_TYPE_CD = #{prodTypeCd}
+            , WORK_DT      = COALESCE(WORK_DT,TO_CHAR(NOW(),'YYYYMMDD'))
+            , WORKST_DT    = CASE WHEN PREV_PROD_TYPE_CD = 'END' THEN WORKST_DT ELSE NULL END
+            , WORKED_DT    = CASE WHEN PREV_PROD_TYPE_CD = 'END' THEN WORKED_DT ELSE NULL END
+        WHERE 1=1
+          AND FACTORY_CD   = #{factoryCd}
+          AND PROD_SEQ     = #{prodSeq}
+          AND PROD_TYPE_CD != 'END'
+    </update>
+
+    <!-- WAT,ING -->
+    <update id="updateRevertProdTypeCd" parameterType="org.rnt.com.entity.vo.ProductionActVO">
+        UPDATE MPO011
+        SET  UPDATE_DT     = NOW()
+            , UPDATE_ID    = #{updateId}
+            , PROD_TYPE_CD = #{preProdTypeCd}
+            , WORK_DT      = COALESCE(WORK_DT,TO_CHAR(NOW(),'YYYYMMDD'))
+            , WORKST_DT    = CASE WHEN #{preProdTypeCd} = 'END' THEN WORKST_DT ELSE NULL END
+            , WORKED_DT    = CASE WHEN #{preProdTypeCd} = 'END' THEN WORKED_DT ELSE NULL END
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND PROD_SEQ   = #{prodSeq}
+    </update>
+
+    <select id="selectPreSumQty" parameterType="org.rnt.com.entity.vo.ProductionActVO" resultType="org.rnt.com.entity.vo.ProductionActVO">
+        SELECT A.PO_QTY
+             , (SELECT COALESCE(SUM(ACTOK_QTY), 0)
+                  FROM MPO013
+                  WHERE USE_YN = 'Y'
+                    AND WORKACT_SEQ = A.WORKACT_SEQ
+                    <if test="workactPerformanceSeq != null and workactPerformanceSeq != ''">
+                    AND WORKACT_PERFORMANCE_SEQ != #{workactPerformanceSeq}
+                    </if>) AS ACTOK_QTY
+             , (SELECT COALESCE(SUM(BAD_QTY), 0)
+                   FROM MPO012
+                  WHERE USE_YN = 'Y'
+                    AND WORKACT_SEQ = A.WORKACT_SEQ
+                    <if test="workactBadSeq != null and workactBadSeq != ''">
+                    AND WORKACT_BAD_SEQ != #{workactBadSeq}
+                    </if>) AS ACTBAD_QTY
+          FROM MPO011 A
+         WHERE 1=1
+           AND A.FACTORY_CD = #{factoryCd}
+           AND A.WORKACT_SEQ = #{workactSeq}
+    </select>
+    
+    <update id="updatePlcEquipByProdSeq" parameterType="org.rnt.com.entity.vo.ProductionActVO">
+        UPDATE MCC907
+        SET PROD_SEQ = #{prodSeq}
+        WHERE 1=1
+          AND EQUIP_CD   = #{equipCd}
+    </update>
+</mapper>

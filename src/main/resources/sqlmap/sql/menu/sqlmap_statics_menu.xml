@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="staticsMenu">
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 설비실적 : searchEquipStaticsList                                                                                                          -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchEquipStaticsList" parameterType="org.rnt.statics.vo.EquipStaticsInVO" resultType="org.rnt.statics.vo.EquipStaticsOutVO">
+         SELECT *
+            FROM (SELECT S1.IDX || '월' AS EQUIP_CD 
+              , COALESCE(S1.VALUE) AS BASE_YEAR_RATE
+              , COALESCE(S2.VALUE) AS COMP_YEAR_RATE
+              , ROW_NUMBER() OVER(ORDER BY S1.IDX ASC) AS RNUM
+            FROM
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, ${searchBaseYear} AS YEAR, 'EQUIP'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = ${searchBaseYear}
+              AND A.TYPE = 'EQUIP') S1
+
+            INNER JOIN
+
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, ${searchCompYear} AS YEAR, 'EQUIP'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = ${searchCompYear}
+              AND A.TYPE = 'EQUIP') S2
+            ON (S1.IDX = S2.IDX)) A
+            
+       <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+    
+     <select id="searchEquipStaticsListTotCnt" parameterType="org.rnt.statics.vo.EquipStaticsInVO" resultType="java.lang.Integer">
+     SELECT COUNT(*) AS TOT_CNT 
+       FROM TEMP_01
+      WHERE TYPE = 'EQUIP'
+    </select>
+    
+    <select id="selectEquipTotStatics" parameterType="org.rnt.statics.vo.EquipStaticsInVO" resultType="org.rnt.statics.vo.EquipStaticsOutVO2">
+        SELECT NULL AS EQUIP_SEQ
+           , ROUND(SUM(BASE_YEAR_RATE)) AS BASE_YEAR_TOT_RATE
+           , ROUND(SUM(COMP_YEAR_RATE)) AS COMP_YEAR_TOT_RATE
+        FROM 
+        (SELECT YEAR
+          , AVG(VALUE) AS BASE_YEAR_RATE
+          , NULL AS COMP_YEAR_RATE
+        FROM TEMP_01 
+        WHERE TYPE = 'EQUIP'
+          AND YEAR = ${searchBaseYear}
+        GROUP BY YEAR
+        
+        UNION ALL
+        
+        SELECT YEAR
+          , NULL AS BASE_YEAR_RATE
+          , AVG(VALUE) AS COMP_YEAR_RATE
+        FROM TEMP_01
+        WHERE TYPE = 'EQUIP'
+          AND YEAR = ${searchCompYear}
+          GROUP BY YEAR) A
+    </select>
+    
+    <select id="searchQualityStaticsList" parameterType="org.rnt.statics.vo.QualityStaticsInVO" resultType="org.rnt.statics.vo.QualityStaticsOutVO">
+        SELECT *
+            FROM (SELECT S1.IDX || '월' AS MONTH 
+              , COALESCE(S1.VALUE) AS BASE_YEAR_RATE
+              , COALESCE(S2.VALUE) AS COMP_YEAR_RATE
+              , ROW_NUMBER() OVER(ORDER BY S1.IDX ASC) AS RNUM
+            FROM
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, ${searchBaseYear} AS YEAR, 'STOCK'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = ${searchBaseYear}
+              AND A.TYPE = 'STOCK') S1
+
+            INNER JOIN
+
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, ${searchCompYear} AS YEAR, 'STOCK'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = ${searchCompYear}
+              AND A.TYPE = 'STOCK') S2
+            ON (S1.IDX = S2.IDX)) A
+            
+       <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+    
+    <select id="selectQualityTotStatics" parameterType="org.rnt.statics.vo.QualityStaticsInVO" resultType="org.rnt.statics.vo.QualityStaticsInVO">
+        SELECT NULL AS EQUIP_SEQ
+           , ROUND(SUM(BASE_YEAR_RATE)) AS BASE_YEAR_TOT_RATE
+           , ROUND(SUM(COMP_YEAR_RATE)) AS COMP_YEAR_TOT_RATE
+        FROM 
+        (SELECT YEAR
+          , AVG(VALUE) AS BASE_YEAR_RATE
+          , NULL AS COMP_YEAR_RATE
+        FROM TEMP_01 
+        WHERE TYPE = 'STOCK'
+          AND YEAR = ${searchBaseYear}
+        GROUP BY YEAR
+        
+        UNION ALL
+        
+        SELECT YEAR
+          , NULL AS BASE_YEAR_RATE
+          , AVG(VALUE) AS COMP_YEAR_RATE
+        FROM TEMP_01
+        WHERE TYPE = 'STOCK'
+          AND YEAR = ${searchCompYear}
+          GROUP BY YEAR) A
+    </select>
+
+    <select id="searchDeliveryStaticsList" parameterType="org.rnt.statics.vo.DeliveryStaticsInVO" resultType="org.rnt.statics.vo.DeliveryStaticsOutVO">
+         SELECT S1.IDX || '월' AS MONTH 
+              , COALESCE(S1.VALUE) AS BASE_YEAR_RATE
+              , COALESCE(S2.VALUE) AS COMP_YEAR_RATE
+            FROM
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, #{searchBaseYear}::NUMERIC AS YEAR, 'DELIVERY'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = #{searchBaseYear}::NUMERIC
+              AND A.TYPE = 'DELIVERY') S1
+            
+            INNER JOIN
+            
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, #{searchCompYear}::NUMERIC AS YEAR, 'DELIVERY'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = #{searchCompYear}::NUMERIC
+              AND A.TYPE = 'DELIVERY') S2
+            ON (S1.IDX = S2.IDX)
+    </select>
+    
+    <select id="selectDeliveryTotStatics" parameterType="org.rnt.statics.vo.DeliveryStaticsInVO" resultType="org.rnt.statics.vo.DeliveryStaticsOutVO">
+        SELECT NULL AS EQUIP_SEQ
+           , SUM(BASE_YEAR_RATE) AS BASE_YEAR_TOT_RATE
+           , SUM(COMP_YEAR_RATE) AS COMP_YEAR_TOT_RATE
+        FROM 
+        (SELECT YEAR
+          , AVG(VALUE) AS BASE_YEAR_RATE
+          , NULL AS COMP_YEAR_RATE
+        FROM TEMP_01 
+        WHERE TYPE = 'DELIVERY'
+          AND YEAR = ${searchBaseYear}
+        GROUP BY YEAR
+        
+        UNION ALL
+        
+        SELECT YEAR
+          , NULL AS BASE_YEAR_RATE
+          , AVG(VALUE) AS COMP_YEAR_RATE
+        FROM TEMP_01
+        WHERE TYPE = 'DELIVERY'
+          AND YEAR = ${searchCompYear}
+          GROUP BY YEAR) A
+    </select>
+</mapper>

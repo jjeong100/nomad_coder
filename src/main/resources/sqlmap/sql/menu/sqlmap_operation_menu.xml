@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="operationMenu">
+    
+    <!-- ============================================================================================================================= -->
+    <!-- BOM : Bom                                                                                                                     -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchBomTreeList" parameterType="org.rnt.operation.vo.BomTreeInVO" resultType="org.rnt.operation.vo.BomTreeOutVO">
+    	WITH RECURSIVE SEARCH_BOM_TREE(ITEM_CD, OPER_SEQ, OPER_UPCD_SEQ, OPER_CD, OPER_NM, BOM_LEVEL, PATH, CYCLE) AS (
+		    SELECT BOM.ITEM_CD, BOM.OPER_SEQ, BOM.OPER_UPCD_SEQ, BOM.OPER_CD, (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = BOM.OPER_CD) AS OPER_NM, BOM.BOM_LEVEL, ARRAY[BOM.OPER_SEQ::TEXT], false
+		    FROM MCC020 BOM
+		    WHERE BOM.OPER_UPCD_SEQ IS NULL
+		      AND BOM.ITEM_CD IN (SELECT ITEM_CD FROM MCC016 WHERE ITEM_NM LIKE '%'||#{viewItemNm}||'%')
+		      AND BOM.BOM_TYPE_CD = 'OP'
+		    UNION ALL
+		    SELECT BOM.ITEM_CD, BOM.OPER_SEQ, BOM.OPER_UPCD_SEQ, BOM.OPER_CD, (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = BOM.OPER_CD) AS OPER_NM, BOM.BOM_LEVEL, PATH || BOM.OPER_SEQ::TEXT , BOM.OPER_SEQ = ANY(PATH)
+		    FROM MCC020 BOM, SEARCH_BOM_TREE BT
+		    WHERE BOM.OPER_UPCD_SEQ = BT.OPER_SEQ 
+		      AND BOM.ITEM_CD = BT.ITEM_CD
+		      AND NOT CYCLE
+		      AND BOM.ITEM_CD IN (SELECT ITEM_CD FROM MCC016 WHERE ITEM_NM LIKE '%'||#{viewItemNm}||'%')
+		      AND BOM.BOM_TYPE_CD = 'OP'
+		)
+		SELECT ITEM_CD
+		     , OPER_SEQ
+		     , OPER_UPCD_SEQ
+		     , OPER_CD
+		     , OPER_NM
+		     , BOM_LEVEL
+		FROM (     
+		SELECT ITEM_CD
+		     , ITEM_CD AS OPER_SEQ
+		     , null AS OPER_UPCD_SEQ
+		     , ITEM_CD AS OPER_CD
+		     , ITEM_NM AS OPER_NM
+		     , 0 BOM_LEVEL
+		FROM MCC016
+		WHERE ITEM_NM LIKE '%'||#{viewItemNm}||'%'
+		UNION ALL     
+		SELECT ITEM_CD
+		     , ITEM_CD||'|'||OPER_SEQ AS OPER_SEQ
+		     , CASE WHEN OPER_UPCD_SEQ IS NULL THEN ITEM_CD ELSE ITEM_CD||'|'||OPER_UPCD_SEQ END AS OPER_UPCD_SEQ
+		     , OPER_CD
+		     , OPER_NM
+		     , BOM_LEVEL     
+		FROM SEARCH_BOM_TREE 
+		) A
+		ORDER BY ITEM_CD, BOM_LEVEL
+    </select>
+    
+    <delete id="deleteBomTree" parameterType="org.rnt.com.entity.vo.BomVO">
+        WITH RECURSIVE SEARCH_BOM_TREE(ITEM_CD, OPER_SEQ, OPER_UPCD_SEQ, OPER_CD, OPER_NM, BOM_LEVEL, PATH, CYCLE) AS (
+            SELECT  BOM.ITEM_CD, BOM.OPER_SEQ, BOM.OPER_UPCD_SEQ, BOM.OPER_CD, (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = BOM.OPER_CD) AS OPER_NM, BOM.BOM_LEVEL, ARRAY[BOM.OPER_SEQ::TEXT], false
+            FROM MCC020 BOM
+            WHERE BOM.OPER_UPCD_SEQ = #{operSeq}
+              AND BOM.ITEM_CD = #{itemCd}
+              AND BOM.BOM_TYPE_CD = 'OP'
+            UNION ALL
+            SELECT BOM.ITEM_CD, BOM.OPER_SEQ, BOM.OPER_UPCD_SEQ, BOM.OPER_CD, (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = BOM.OPER_CD) AS OPER_NM, BOM.BOM_LEVEL, PATH || BOM.OPER_SEQ::TEXT , BOM.OPER_SEQ = ANY(PATH)
+            FROM MCC020 BOM, SEARCH_BOM_TREE BT
+            WHERE BOM.OPER_UPCD_SEQ = BT.OPER_SEQ AND NOT CYCLE
+              AND BOM.ITEM_CD = #{itemCd}
+              AND BOM.BOM_TYPE_CD = 'OP'
+        )
+        DELETE FROM MCC020
+        WHERE OPER_SEQ IN (
+            SELECT OPER_SEQ
+            FROM SEARCH_BOM_TREE
+            UNION 
+            SELECT #{operSeq}
+        )
+        AND ITEM_CD = #{itemCd}
+    </delete>
+    
+    <select id="getBomVer" parameterType="String" resultType="String">
+       SELECT GET_BOM_VER(#{itemCd},'Y')
+    </select>
+    
+    <update id="updateBomVer" parameterType="org.rnt.com.entity.vo.BomVO">
+        UPDATE MCC020
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            ,BOM_VER = #{bomVer}
+            ,BOM_STDT = TO_CHAR(now(),'YYYYMMDD')
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEM_CD = #{itemCd}
+    </update>
+    
+    <select id="getBomHisSeq" resultType="String">
+       SELECT TABLE_SEQ_NEXTVAL('MCC022')
+    </select>
+    
+    
+    <insert id="insertBomBackUp" parameterType="org.rnt.com.entity.vo.BomVO">
+        INSERT INTO MCC022
+        (
+             BOM_HIS_SEQ
+            ,FACTORY_CD
+            ,BOM_SEQ
+            ,BOM_VER
+            ,BOM_STDT
+            ,OPER_CD
+            ,OPER_SEQ
+            ,OPER_UPCD
+            ,OPER_UPCD_SEQ
+            ,OPER_TOPCD
+            ,OPER_TOPCD_SEQ
+            ,BOM_LEVEL
+            ,BOM_TYPE_CD
+            ,ITEM_CD
+            ,MAT_CD
+            ,DEMAND_QTY
+            ,CONFIRM_YN
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID        
+        )
+        (SELECT #{bomHisSeq}
+               ,FACTORY_CD
+               ,BOM_SEQ
+               ,BOM_VER
+               ,BOM_STDT
+               ,OPER_CD
+               ,OPER_SEQ
+               ,OPER_UPCD
+               ,OPER_UPCD_SEQ
+               ,OPER_TOPCD
+               ,OPER_TOPCD_SEQ
+               ,BOM_LEVEL
+               ,BOM_TYPE_CD
+               ,ITEM_CD
+               ,MAT_CD
+               ,DEMAND_QTY
+               ,CONFIRM_YN
+               ,USE_YN
+               ,WRITE_DT
+               ,WRITE_ID
+               ,UPDATE_DT
+               ,UPDATE_ID        
+        FROM MCC020
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEM_CD = #{itemCd}
+        )
+    
+    </insert>
+    
+</mapper>

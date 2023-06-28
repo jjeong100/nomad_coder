@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-3.2.xsd">
+    
+    <!-- Controller에서  ModelAndView타입으로 "excelView"을 넘겨줄경우 ExcelMaker로 연결 정의 -->
+    <!-- http://www.codejava.net/frameworks/spring/spring-mvc-with-excel-view-example-apache-poi-and-jexcelapi 참조 -->
+    <!-- 필요한 경우 구현  
+    <bean id="excelView" class="org.ndata.com.ExcelMaker" />
+     -->
+</beans>

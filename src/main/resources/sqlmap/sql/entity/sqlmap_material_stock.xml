@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mwp001">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.MaterialStockVO">
+		INSERT INTO MWP001
+		(
+			 FACTORY_CD
+			,STOCK_SEQ
+			,MAGAM_YYYYMM
+			,MAGAM_YMD
+			,SUBUL_YMD
+			,MAGAM_YN
+			,WORKSHOP_CD
+			,AREA_CD
+			,MAT_CD
+			,BASE_QTY
+			,IN_QTY
+			,INRET_QTY
+			,OPOUT_QTY
+			,OPRET_QTY
+			,MRET_QTY
+			,DISPO_QTY
+			,STOCK_QTY
+			,IN_UNIT_VAL
+			,STOCK_UNIT_VAL
+			,MCONTROL_QTY
+			,MCONTROL_DT
+			,MCONTROL_ID
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,#{stockSeq}
+			,#{magamYyyymm}
+			,#{magamYmd}
+			,#{subulYmd}
+			,#{magamYn}
+			,#{workshopCd}
+			,#{areaCd}
+			,#{matCd}
+			,#{baseQty}
+			,#{inQty}
+			,#{inretQty}
+			,#{opoutQty}
+			,#{opretQty}
+			,#{mretQty}
+			,#{dispoQty}
+			,#{stockQty}
+			,#{inUnitVal}
+			,#{stockUnitVal}
+			,#{mcontrolQty}
+			,#{mcontrolDt}
+			,#{mcontrolId}
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.MaterialStockVO" resultType="org.rnt.com.entity.vo.MaterialStockVO">
+		SELECT
+			 FACTORY_CD
+			,STOCK_SEQ
+			,MAGAM_YYYYMM
+			,MAGAM_YMD
+			,SUBUL_YMD
+			,MAGAM_YN
+			,WORKSHOP_CD
+			,AREA_CD
+			,MAT_CD
+			,BASE_QTY
+			,IN_QTY
+			,INRET_QTY
+			,OPOUT_QTY
+			,OPRET_QTY
+			,MRET_QTY
+			,DISPO_QTY
+			,STOCK_QTY
+			,IN_UNIT_VAL
+			,STOCK_UNIT_VAL
+			,MCONTROL_QTY
+			,MCONTROL_DT
+			,MCONTROL_ID
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		FROM MWP001 A
+		WHERE 1=1 
+		  AND FACTORY_CD = #{factoryCd}
+		  AND STOCK_SEQ = #{stockSeq}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.MaterialStockVO">
+		UPDATE MWP001
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="magamYyyymm != null">,MAGAM_YYYYMM = #{magamYyyymm}</if>
+			<if test="magamYmd != null">,MAGAM_YMD = #{magamYmd}</if>
+			<if test="subulYmd != null">,SUBUL_YMD = #{subulYmd}</if>
+			<if test="magamYn != null">,MAGAM_YN = #{magamYn}</if>
+			<if test="workshopCd != null">,WORKSHOP_CD = #{workshopCd}</if>
+			<if test="areaCd != null">,AREA_CD = #{areaCd}</if>
+			<if test="matCd != null">,MAT_CD = #{matCd}</if>
+			<if test="baseQty != null">,BASE_QTY = #{baseQty}</if>
+			<if test="inQty != null">,IN_QTY = #{inQty}</if>
+			<if test="inretQty != null">,INRET_QTY = #{inretQty}</if>
+			<if test="opoutQty != null">,OPOUT_QTY = #{opoutQty}</if>
+			<if test="opretQty != null">,OPRET_QTY = #{opretQty}</if>
+			<if test="mretQty != null">,MRET_QTY = #{mretQty}</if>
+			<if test="dispoQty != null">,DISPO_QTY = #{dispoQty}</if>
+			<if test="stockQty != null">,STOCK_QTY = #{stockQty}</if>
+			<if test="inUnitVal != null">,IN_UNIT_VAL = #{inUnitVal}</if>
+			<if test="stockUnitVal != null">,STOCK_UNIT_VAL = #{stockUnitVal}</if>
+			<if test="mcontrolQty != null">,MCONTROL_QTY = #{mcontrolQty}</if>
+			<if test="mcontrolDt != null">,MCONTROL_DT = #{mcontrolDt}</if>
+			<if test="mcontrolId != null">,MCONTROL_ID = #{mcontrolId}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND STOCK_SEQ = #{stockSeq}
+	
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.MaterialStockVO">
+		UPDATE MWP001
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+		    ,USE_YN = 'N'
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND STOCK_SEQ = #{stockSeq}
+	</update>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.MaterialStockVO" resultType="org.rnt.com.entity.vo.MaterialStockVO">
+		SELECT *
+		FROM (
+			SELECT FACTORY_CD
+			     , STOCK_SEQ
+			     , MAGAM_YYYYMM
+			     , MAGAM_YMD
+			     , SUBUL_YMD
+			     , MAGAM_YN
+			     , WORKSHOP_CD
+			     , AREA_CD
+			     , MAT_CD
+			     , BASE_QTY
+			     , IN_QTY
+			     , INRET_QTY
+			     , OPOUT_QTY
+			     , OPRET_QTY
+			     , MRET_QTY
+			     , DISPO_QTY
+			     , STOCK_QTY
+			     , STOCK_UNIT_VAL
+			     , MCONTROL_QTY
+			     , MCONTROL_DT
+			     , MCONTROL_ID
+			     , USE_YN
+			     , WRITE_DT
+			     , WRITE_ID
+			     , UPDATE_DT
+			     , UPDATE_ID
+			     <if test="sortCol != null">
+			     , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			     </if>
+			     <if test="sortCol == null">
+			     , ROW_NUMBER() OVER(ORDER BY UPDATE_DT DESC) AS RNUM
+			     </if>
+			FROM MWP001 A
+			WHERE 1=1
+			  AND USE_YN = 'Y'
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+		</if>
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.MaterialStockVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MWP001
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+	</select>
+</mapper>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc036">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.OperAuthVO">
+		INSERT INTO MCC036
+		(
+			 FACTORY_CD
+			,OPER_AUTH_CD
+			,OPER_CD
+			,OPER_CHK_YN
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,#{operAuthCd}
+			,#{operCd}
+			,#{operChkYn}
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.OperAuthVO" resultType="org.rnt.com.entity.vo.OperAuthVO">
+		SELECT
+			 FACTORY_CD
+			,OPER_AUTH_CD
+			,OPER_CD
+			,OPER_CHK_YN
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		FROM MCC036 A
+		WHERE 1=1 
+		  AND FACTORY_CD = #{factoryCd}
+		  AND OPER_AUTH_CD = #{operAuthCd}
+		  AND OPER_CD = #{operCd}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.OperAuthVO">
+		UPDATE MCC036
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="operChkYn != null">,OPER_CHK_YN = #{operChkYn}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND OPER_AUTH_CD = #{operAuthCd}
+		  AND OPER_CD = #{operCd}
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.OperAuthVO">
+		DELETE FROM MCC036
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND OPER_AUTH_CD = #{operAuthCd}
+	</update>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.OperAuthVO" resultType="org.rnt.com.entity.vo.OperAuthVO">
+		SELECT B.FACTORY_CD
+			 , A.OPER_CD
+		     , A.OPER_NM
+		     , B.OPER_AUTH_CD
+			 , B.OPER_CHK_YN
+		     , B.USE_YN
+		     , B.WRITE_DT
+		     , B.WRITE_ID
+		     , B.UPDATE_DT
+		     , B.UPDATE_ID
+		     , ROW_NUMBER() OVER(ORDER BY A.OPER_CD ASC) AS RNUM
+		FROM MCC030 A
+			 LEFT OUTER JOIN MCC036 B ON B.FACTORY_CD = A.FACTORY_CD
+			 						  AND B.OPER_CD = A.OPER_CD
+			 						  AND B.OPER_AUTH_CD = #{operAuthCd}
+		WHERE 1=1
+		  AND A.USE_YN = 'Y'
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.OperAuthVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MCC036
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+		  <if test="searchOperAuthCd != null and searchOperAuthCd != ''">
+              AND B.OPER_AUTH_CD LIKE '%'||#{searchOperAuthCd}||'%'
+          </if>
+	</select>
+</mapper>

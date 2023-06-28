@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mpo010">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.ProductionMstActVO">
+		INSERT INTO MPO010
+		(
+			 FACTORY_CD
+			,WORKACT_MST_SEQ
+			,PROD_SEQ
+			,OPER_CD
+			,OPER_LVL
+			,LAST_OPER_YN
+			,ITEM_CD
+			,ASSIGN_QTY
+			,WORK_QTY
+			,ACTOK_QTY
+			,ACTBAD_QTY
+			,CONFIRM_QTY
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,#{workactMstSeq}
+			,#{prodSeq}
+			,#{operCd}
+			,#{operLvl}
+			,#{lastOperYn}
+			,#{itemCd}
+			,#{assignQty}
+			,#{workQty}
+			,#{actokQty}
+			,#{actbadQty}
+			,#{confirmQty}
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.ProductionMstActVO" resultType="org.rnt.com.entity.vo.ProductionMstActVO">
+		SELECT A.FACTORY_CD
+		     , A.WORKACT_MST_SEQ
+		     , A.PROD_SEQ
+		     , A.OPER_CD
+		     , (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = A.OPER_CD) AS OPER_NM
+		     , A.OPER_LVL
+		     , A.ITEM_CD
+		     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+		     , C.CUST_CD
+		     , (SELECT CUST_NM FROM MCC025 WHERE CUST_CD = C.CUST_CD) AS MAT_CUST_NM
+		     , A.ASSIGN_QTY AS LIMIT_ASSIGN_QTY
+		     , A.ASSIGN_QTY
+		     , A.WORK_QTY
+		     , A.ACTOK_QTY
+		     , A.ACTBAD_QTY
+		     , A.CONFIRM_QTY
+		     , A.USE_YN
+		     , A.WRITE_DT
+		     , A.WRITE_ID
+		     , A.UPDATE_DT
+		     , A.UPDATE_ID
+		  FROM MPO010 A
+		       LEFT OUTER JOIN MCC016 B ON B.ITEM_CD = A.ITEM_CD
+		       LEFT OUTER JOIN MCC030 C ON C.OPER_CD = A.OPER_CD
+		 WHERE 1=1
+		   AND A.FACTORY_CD = #{factoryCd}
+		   AND A.WORKACT_MST_SEQ = #{workactMstSeq}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.ProductionMstActVO">
+		UPDATE MPO010
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<!-- <if test="prodSeq != null">,PROD_SEQ = #{prodSeq}</if>
+			<if test="operCd != null">,OPER_CD = #{operCd}</if>
+			<if test="operLvl != null">,OPER_LVL = #{operLvl}</if>
+			<if test="itemCd != null">,ITEM_CD = #{itemCd}</if> -->
+			<if test="assignQty != null">,ASSIGN_QTY = #{assignQty}</if>
+			<if test="workQty != null">,WORK_QTY = #{workQty}</if>
+			<if test="actokQty != null">,ACTOK_QTY = #{actokQty}</if>
+			<if test="actbadQty != null">,ACTBAD_QTY = #{actbadQty}</if>
+			<if test="confirmQty != null">,CONFIRM_QTY = #{confirmQty}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND WORKACT_MST_SEQ = #{workactMstSeq}
+	</update>
+
+	<update id="updateAssignQty" parameterType="org.rnt.com.entity.vo.ProductionMstActVO">
+		UPDATE MPO010
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="assignQty != null">,ASSIGN_QTY = #{assignQty}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND PROD_SEQ = #{prodSeq}
+		  AND OPER_LVL = #{operLvl}
+	</update>
+
+	<update id="updateAssignQtyAtMix" parameterType="org.rnt.com.entity.vo.ProductionMstActVO">
+        UPDATE MPO010 A
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            ,ASSIGN_QTY = B.PO_QTY
+        FROM MPO009 B
+        WHERE 1=1
+          AND A.PROD_SEQ = B.PROD_SEQ
+          AND A.FACTORY_CD = #{factoryCd}
+          AND A.PROD_SEQ IN (SELECT PROD_SEQ FROM MPO009 WHERE UP_PROD_SEQ = #{prodSeq})
+          AND A.OPER_CD = #{operCd}
+    </update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.ProductionMstActVO">
+		UPDATE MPO010
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+		    ,USE_YN = 'N'
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND WORKACT_MST_SEQ = #{workactMstSeq}
+	</update>
+
+	<select id="selectList" parameterType="org.rnt.com.entity.vo.ProductionMstActVO" resultType="org.rnt.com.entity.vo.ProductionMstActVO">
+		SELECT
+			 FACTORY_CD
+			,WORKACT_MST_SEQ
+			,PROD_SEQ
+			,(CASE	-- 배정수량만큼 작업을 하고, 양품수량만큼 확정한 건만 작업종료, 프레스는 배정수량보다 작업수량이 10%이상 높을 수 있음
+				WHEN ASSIGN_QTY > 0 AND CONFIRM_QTY > 0 AND WORK_QTY > 0 AND ACTOK_QTY > 0
+						AND ASSIGN_QTY <![CDATA[<=]]> WORK_QTY AND ACTOK_QTY = CONFIRM_QTY
+						AND WORK_QTY = ACTOK_QTY + ACTBAD_QTY
+					THEN 'END'
+				ELSE 'ING'
+			 END) AS WORKACT_TYPE_CD
+			,OPER_CD
+			,(SELECT OPER_NM FROM MCC030 WHERE OPER_CD = A.OPER_CD) AS OPER_NM
+			,OPER_LVL
+			,ITEM_CD
+			,(SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+			,ASSIGN_QTY
+			,WORK_QTY
+			,ACTOK_QTY
+			,ACTBAD_QTY
+			,CONFIRM_QTY
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		FROM MPO010 A
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND PROD_SEQ = #{prodSeq}
+	</select>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.ProductionMstActVO" resultType="org.rnt.com.entity.vo.ProductionMstActVO">
+		SELECT *
+		FROM (
+			SELECT FACTORY_CD
+			     , WORKACT_MST_SEQ
+			     , PROD_SEQ
+			     , OPER_CD
+			     , OPER_LVL
+			     , ITEM_CD
+			     , ASSIGN_QTY
+			     , WORK_QTY
+			     , ACTOK_QTY
+			     , ACTBAD_QTY
+			     , CONFIRM_QTY
+			     , USE_YN
+			     , WRITE_DT
+			     , WRITE_ID
+			     , UPDATE_DT
+			     , UPDATE_ID
+			     <if test="sortCol != null">
+			     , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			     </if>
+			     <if test="sortCol == null">
+			     , ROW_NUMBER() OVER(ORDER BY UPDATE_DT DESC) AS RNUM
+			     </if>
+			FROM MPO010 A
+			WHERE 1=1
+			  AND USE_YN = 'Y'
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+		</if>
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.ProductionMstActVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MPO010
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+	</select>
+
+	<delete id="deleteProductionOrder" parameterType="org.rnt.com.entity.vo.ProductionMstActVO">
+		DELETE FROM MPO010
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND PROD_SEQ = #{prodSeq}
+	</delete>
+</mapper>

@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc050">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.BomInspVO">
+		INSERT INTO MCC050
+		(
+			 FACTORY_CD
+			,BOM_INSP_SEQ
+			,BOM_SEQ
+			,INSP_TYPE_CD
+			,INSP_ITEM_CD
+			,HIGH_VAL
+			,LOW_VAL
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,TABLE_SEQ_NEXTVAL('MCC050')
+			,#{bomSeq}
+			,#{inspTypeCd}
+			,#{inspItemCd}
+			,(SELECT HIGH_VAL FROM MCC033 WHERE INSP_TYPE_CD = #{inspTypeCd} AND INSP_ITEM_CD = #{inspItemCd})
+			,(SELECT LOW_VAL FROM MCC033 WHERE INSP_TYPE_CD = #{inspTypeCd} AND INSP_ITEM_CD = #{inspItemCd})
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.BomInspVO" resultType="org.rnt.com.entity.vo.BomInspVO">
+		SELECT
+			 FACTORY_CD
+			,BOM_INSP_SEQ
+			,BOM_SEQ
+			,INSP_TYPE_CD
+			,INSP_ITEM_CD
+			,HIGH_VAL
+			,LOW_VAL
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		FROM MCC050 A
+		WHERE 1=1 
+		  AND FACTORY_CD = #{factoryCd}
+		  AND BOM_INSP_SEQ = #{bomInspSeq}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.BomInspVO">
+		UPDATE MCC050
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="bomSeq != null">,BOM_SEQ = #{bomSeq}</if>
+			<if test="highVal != null">,HIGH_VAL = #{highVal}</if>
+			<if test="lowVal != null">,LOW_VAL = #{lowVal}</if>
+			<if test="inspTypeCd != null">,INSP_TYPE_CD = #{inspTypeCd}</if>
+			<if test="inspItemCd != null">,INSP_ITEM_CD = #{inspItemCd}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND BOM_INSP_SEQ = #{bomInspSeq}
+	
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.BomInspVO">
+		DELETE FROM MCC050
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND BOM_INSP_SEQ = #{bomInspSeq}
+	</update>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.BomInspVO" resultType="org.rnt.com.entity.vo.BomInspVO">
+		SELECT *
+		FROM (
+		    SELECT A.*
+		          <if test="sortCol != null">
+			      , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			      </if>
+			      <if test="sortCol == null">
+			      , ROW_NUMBER() OVER(ORDER BY BOM_INSP_SEQ ASC) AS RNUM
+			      </if>
+			FROM (
+			    SELECT FACTORY_CD
+				     , BOM_INSP_SEQ
+				     , BOM_SEQ
+				     , INSP_TYPE_CD
+				     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'INSP_TYPE_CD' AND SCODE = A.INSP_TYPE_CD ) AS INSP_TYPE_NM
+				     , INSP_ITEM_CD		
+				     , (SELECT INSP_ITEM_NM FROM MCC033 WHERE INSP_TYPE_CD = A.INSP_TYPE_CD AND INSP_ITEM_CD = A.INSP_ITEM_CD) AS INSP_ITEM_NM
+				     , (SELECT INSP_ITEM_TYPE_CD FROM MCC033 WHERE INSP_TYPE_CD = A.INSP_TYPE_CD AND INSP_ITEM_CD = A.INSP_ITEM_CD) AS INSP_ITEM_TYPE_CD
+				     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'INSP_ITEM_TYPE_CD' 
+				                                     AND SCODE IN (SELECT INSP_ITEM_TYPE_CD FROM MCC033 WHERE INSP_TYPE_CD = A.INSP_TYPE_CD 
+				                                                                                          AND INSP_ITEM_CD = A.INSP_ITEM_CD)) AS INSP_ITEM_TYPE_NM
+				     , LOW_VAL
+				     , HIGH_VAL
+				     , USE_YN
+				     , WRITE_DT
+				     , WRITE_ID
+				     , UPDATE_DT
+				     , UPDATE_ID
+				FROM MCC050 A
+				WHERE 1=1
+				  AND USE_YN = 'Y'
+				  <if test="searchItemCd != null and searchItemCd != '' and searchOperSeq != null and searchOperSeq != ''">
+                      AND A.BOM_SEQ IN (SELECT BOM_SEQ FROM MCC020 WHERE ITEM_CD = #{searchItemCd} AND OPER_SEQ = #{searchOperSeq} AND BOM_TYPE_CD = 'OP' )
+                  </if>
+				  <if test="searchBomSeq != null and searchBomSeq != ''">
+	                  AND BOM_SEQ = #{searchBomSeq}
+	              </if>
+	              <if test="searchInspTypeCd != null and searchInspTypeCd != ''">
+	                  AND INSP_TYPE_CD = #{searchInspTypeCd}
+	              </if>
+			) A
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+		</if>
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.BomInspVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MCC050
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+		  <if test="searchItemCd != null and searchItemCd != '' and searchOperSeq != null and searchOperSeq != ''">
+              AND A.BOM_SEQ IN (SELECT BOM_SEQ FROM MCC020 WHERE ITEM_CD = #{searchItemCd} AND OPER_SEQ = #{searchOperSeq} AND BOM_TYPE_CD = 'OP' )
+          </if>
+		  <if test="searchBomSeq != null and searchBomSeq != ''">
+              AND BOM_SEQ = #{searchBomSeq}
+          </if>
+          <if test="searchInspTypeCd != null and searchInspTypeCd != ''">
+              AND INSP_TYPE_CD = #{searchInspTypeCd}
+          </if>
+	</select>
+	
+	<select id="selectInspList" parameterType="org.rnt.com.entity.vo.BomInspVO" resultType="org.rnt.com.entity.vo.BomInspVO">
+     SELECT INSP.INSP_ITEM_CD
+           ,INSP.INSP_ITEM_NM
+           ,INSP.INSP_ITEM_TYPE_CD
+           ,INSP.HIGH_VAL
+           ,INSP.LOW_VAL
+           ,INSP.INSP_DANWI_CD
+           ,INSP.INSP_TYPE_CD
+     FROM MCC020 BOM INNER JOIN MCC050 BOM_INSP ON BOM_INSP.FACTORY_CD =  BOM.FACTORY_CD
+                                               AND BOM_INSP.BOM_SEQ = BOM.BOM_SEQ
+                                               AND BOM_INSP.USE_YN = 'Y'
+                     INNER JOIN MCC033 INSP ON INSP.FACTORY_CD =  BOM_INSP.FACTORY_CD
+                                           AND INSP.INSP_TYPE_CD = BOM_INSP.INSP_TYPE_CD
+                                           AND INSP.INSP_ITEM_CD = BOM_INSP.INSP_ITEM_CD
+                                           AND INSP.USE_YN = 'Y'
+    WHERE BOM.ITEM_CD IN (SELECT ITEM_CD FROM MPO011 WHERE WORKACT_SEQ = #{searchWorkactSeq})
+      AND BOM.OPER_CD = #{searchOperCd}
+      AND BOM_INSP.INSP_TYPE_CD = #{searchInspTypeCd}
+    </select> 
+</mapper>

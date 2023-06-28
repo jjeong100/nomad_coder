@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mwp015">
+
+    <select id="getSeq" resultType="String">
+       SELECT TABLE_SEQ_NEXTVAL('MWP015')
+    </select>
+
+    <select id="getLotId" resultType="String">
+       SELECT LOT_SEQ_NEXTVAL('OT')
+    </select>
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.ItemOutMstVO">
+        INSERT INTO MWP015
+        (
+             FACTORY_CD
+            ,ITEMOUT_SEQ
+            ,ITEMOUT_DT
+            ,PROD_SEQ
+            ,CUST_CD
+            ,ITEM_CD
+            ,ITEM_OUT_TYPE_CD
+            ,OUT_QTY
+            ,LOTID
+            ,LOT_OUT_ID
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        ) VALUES (
+             #{factoryCd}
+            ,#{itemoutSeq}
+            ,REGEXP_REPLACE(#{itemoutDt}, '[^0-9]', '', 'g')
+            ,#{prodSeq}
+            ,#{custCd}
+            ,#{itemCd}
+            ,#{itemOutTypeCd}
+            ,#{outQty}
+            ,#{lotid}
+            ,#{lotOutId}
+            ,'Y'
+            ,now()
+            ,#{writeId}
+            ,now()
+            ,#{updateId}
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.ItemOutMstVO" resultType="org.rnt.com.entity.vo.ItemOutMstVO">
+    	SELECT ITEMOUT.FACTORY_CD
+		     , ITEMOUT.ITEMOUT_SEQ
+		     , TO_CHAR(TO_DATE(ITEMOUT.ITEMOUT_DT,'YYYYMMDD'),'YYYY/MM/DD') AS ITEMOUT_DT
+		     , ITEMOUT.PROD_SEQ
+		     , ITEMOUT.CUST_CD
+		     , (SELECT CUST_NM FROM MCC025 WHERE CUST_CD = ITEMOUT.CUST_CD) AS CUST_NM
+		     , ITEMOUT.ITEM_CD
+		     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = ITEMOUT.ITEM_CD) AS ITEM_NM
+		     , ITEMOUT.ITEM_OUT_TYPE_CD
+		     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_OUT_TYPE_CD' AND SCODE = ITEMOUT.ITEM_OUT_TYPE_CD) AS ITEM_OUT_TYPE_NM
+		     , ITEMOUT.OUT_QTY
+		     , ITEMOUT.LOTID
+		     , ITEMOUT.LOT_OUT_ID
+		     , ITEMOUT.USE_YN
+		     , ITEMOUT.WRITE_DT
+		     , ITEMOUT.WRITE_ID
+		     , ITEMOUT.UPDATE_DT
+		     , ITEMOUT.UPDATE_ID
+		  FROM MWP015 ITEMOUT
+         WHERE 1=1
+           AND FACTORY_CD = #{factoryCd}
+           AND ITEMOUT_SEQ = #{itemoutSeq}
+    </select>
+
+    <select id="selectByLotId" parameterType="org.rnt.com.entity.vo.ItemOutMstVO" resultType="org.rnt.com.entity.vo.ItemOutMstVO">
+    	SELECT ITEMOUT.FACTORY_CD
+		     , ITEMOUT.ITEMOUT_SEQ
+		     , TO_CHAR(TO_DATE(ITEMOUT.ITEMOUT_DT,'YYYYMMDD'),'YYYY/MM/DD') AS ITEMOUT_DT
+		     , ITEMOUT.PROD_SEQ
+		     , ITEMOUT.CUST_CD
+		     , (SELECT CUST_NM FROM MCC025 WHERE CUST_CD = ITEMOUT.CUST_CD) AS CUST_NM
+		     , ITEMOUT.ITEM_CD
+		     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = ITEMOUT.ITEM_CD) AS ITEM_NM
+		     , ITEMOUT.ITEM_OUT_TYPE_CD
+		     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_OUT_TYPE_CD' AND SCODE = ITEMOUT.ITEM_OUT_TYPE_CD) AS ITEM_OUT_TYPE_NM
+		     , ITEMOUT.OUT_QTY
+		     , ITEMOUT.LOTID
+		     , ITEMOUT.LOT_OUT_ID
+		     , ITEMOUT.USE_YN
+		     , ITEMOUT.WRITE_DT
+		     , ITEMOUT.WRITE_ID
+		     , ITEMOUT.UPDATE_DT
+		     , ITEMOUT.UPDATE_ID
+		  FROM MWP015 ITEMOUT
+         WHERE 1=1
+           AND FACTORY_CD = #{factoryCd}
+           AND LOT_OUT_ID = #{lotOutId}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.ItemOutMstVO">
+        UPDATE MWP015
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            <if test="itemoutDt != null">,ITEMOUT_DT = REGEXP_REPLACE(#{itemoutDt}, '[^0-9]', '', 'g')</if>
+            <if test="custCd != null">,CUST_CD = #{custCd}</if>
+            <if test="itemCd != null">,ITEM_CD = #{itemCd}</if>
+            <if test="itemOutTypeCd != null">,ITEM_OUT_TYPE_CD = #{itemOutTypeCd}</if>
+            <if test="outQty != null">,OUT_QTY = #{outQty}</if>
+            <if test="lotid != null">,LOTID = #{lotid}</if>
+            <if test="lotOutId != null">,LOT_OUT_ID = #{lotOutId}</if>
+            <if test="useYn != null">,USE_YN = #{useYn}</if>
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEMOUT_SEQ = #{itemoutSeq}
+
+    </update>
+    <update id="updateOutSet" parameterType="org.rnt.com.entity.vo.ItemOutMstVO">
+        UPDATE MWP015
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            ,ITEM_OUT_TYPE_CD = 'OUT'
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND LOT_OUT_ID = #{lotOutId}
+    </update>
+
+    <update id="delete" parameterType="org.rnt.com.entity.vo.ItemOutMstVO">
+        DELETE FROM MWP015
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEMOUT_SEQ = #{itemoutSeq}
+    </update>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.ItemOutMstVO" resultType="org.rnt.com.entity.vo.ItemOutMstVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                  <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                  </if>
+                  <if test="sortCol == null">
+                  , ROW_NUMBER() OVER(ORDER BY ITEMIN_DT DESC) AS RNUM
+                  </if>
+            FROM (
+                SELECT ITEMOUT.FACTORY_CD
+				     , ITEMOUT.ITEMOUT_SEQ
+				     , ITEMOUT.ITEMOUT_DT
+				     , TO_CHAR(TO_DATE(ITEMOUT.ITEMOUT_DT,'YYYYMMDD'),'YYYY/MM/DD') AS ITEMOUT_DT
+				     , ITEMOUT.PROD_SEQ
+				     , ITEMOUT.CUST_CD
+				     , (SELECT CUST_NM FROM MCC025 WHERE CUST_CD = ITEMOUT.CUST_CD) AS CUST_NM
+				     , ITEMOUT.ITEM_CD
+				     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = ITEMOUT.ITEM_CD) AS ITEM_NM
+				     , ITEMOUT.ITEM_OUT_TYPE_CD
+				     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_OUT_TYPE_CD' AND SCODE = ITEMOUT.ITEM_OUT_TYPE_CD) AS ITEM_OUT_TYPE_NM
+				     , ITEMOUT.OUT_QTY
+				     , ITEMOUT.LOTID
+				     , ITEMOUT.LOT_OUT_ID
+				     , ITEMOUT.USE_YN
+				     , ITEMOUT.WRITE_DT
+				     , ITEMOUT.WRITE_ID
+				     , ITEMOUT.UPDATE_DT
+				     , ITEMOUT.UPDATE_ID
+				  FROM MWP015 ITEMOUT
+				 WHERE 1 = 1
+				   AND ITEMOUT.USE_YN = 'Y'
+				<if test="searchLotid != null and searchLotid != ''">
+					AND ITEMOUT.LOTID = #{searchLotid}
+				</if>
+				<if test="searchType != null and searchType != ''">
+				AND ITEM_OUT_TYPE_CD=#{searchType}
+				</if>
+				<if test="searchFromDate != null and searchFromDate != '' and searchToDate != null  and searchToDate != ''">
+				AND ITEMOUT_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+				</if>
+
+                ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.ItemOutMstVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM MWP015 ITEMOUT
+        WHERE 1=1
+          AND ITEMOUT.USE_YN = 'Y'
+		<if test="searchLotid != null and searchLotid != ''">
+			AND ITEMOUT.LOTID = #{searchLotid}
+		</if>
+		<if test="searchType != null and searchType != ''">
+		AND ITEM_OUT_TYPE_CD=#{searchType}
+		</if>
+		<if test="searchFromDate != null and searchFromDate != '' and searchToDate != null  and searchToDate != ''">
+		AND ITEMOUT_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+		</if>
+    </select>
+
+    <select id="searchItemInList" parameterType="org.rnt.com.entity.vo.ItemOutMstVO" resultType="org.rnt.com.entity.vo.ItemOutMstVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                  <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                  </if>
+                  <if test="sortCol == null">
+                  , ROW_NUMBER() OVER(ORDER BY ITEMIN_DT DESC) AS RNUM
+                  </if>
+            FROM (
+                SELECT ITEMIN.FACTORY_CD
+				     , ITEMIN.ITEMIN_SEQ
+				     , ITEMIN.PROD_SEQ
+				     , PROD.PROD_PO_NO
+				     , ITEMIN.MQC_SEQ
+				     , TO_CHAR(TO_DATE(ITEMIN.ITEMIN_DT,'YYYYMMDD'),'YYYY/MM/DD') AS ITEMIN_DT
+				     , ITEMIN.ITEM_CD
+				     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = ITEMIN.ITEM_CD) AS ITEM_NM
+				     , ITEMIN.INOK_QTY
+				     , ITEMIN.LOTID
+				     , (COALESCE(ITEMOUT.OUT_WAIT_QTY, 0) + COALESCE(ITEMOUT.OUT_QTY, 0)+ COALESCE(ITEMOUT.DISUSE_QTY, 0)- COALESCE(ITEMOUT.OUT_CAN_QTY, 0)- COALESCE(ITEMOUT.MODIFY_QTY, 0)) AS TOT_OUT_QTY
+				     , ITEMIN.INOK_QTY - (COALESCE(ITEMOUT.OUT_WAIT_QTY, 0) + COALESCE(ITEMOUT.OUT_QTY, 0)+ COALESCE(ITEMOUT.DISUSE_QTY, 0)- COALESCE(ITEMOUT.OUT_CAN_QTY, 0)- COALESCE(ITEMOUT.MODIFY_QTY, 0))  AS ITEMIN_STOCK_QTY
+				     , ITEMIN.USE_YN
+				     , ITEMIN.WRITE_DT
+				     , ITEMIN.WRITE_ID
+				     , ITEMIN.UPDATE_DT
+				     , ITEMIN.UPDATE_ID
+				  FROM MWP012 ITEMIN
+				       INNER JOIN MPO009 PROD ON PROD.PROD_SEQ = ITEMIN.PROD_SEQ
+				       LEFT OUTER JOIN (SELECT LOTID
+										     , SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_WAIT' THEN OUT_QTY ELSE 0 END) AS OUT_WAIT_QTY
+									             , SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'OUT' THEN OUT_QTY ELSE 0 END) AS OUT_QTY
+									             , SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'DISUSE' THEN OUT_QTY ELSE 0 END) AS DISUSE_QTY
+									             , SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_CAN' THEN OUT_QTY ELSE 0 END) AS OUT_CAN_QTY
+									             , SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'MODIFY' THEN OUT_QTY ELSE 0 END) AS MODIFY_QTY
+										  FROM MWP015
+										 WHERE 1 = 1
+										 GROUP BY LOTID) ITEMOUT ON ITEMOUT.LOTID = ITEMIN.LOTID
+				 WHERE 1 = 1
+				   AND ITEMIN.USE_YN = 'Y'
+				 <if test="searchType != null and searchType != ''">
+				  <if test="searchFromDate != null and searchFromDate != '' and searchToDate != null  and searchToDate != ''">
+							AND EXISTS (SELECT *
+										  FROM MWP015
+										 WHERE LOTID = ITEMIN.LOTID AND ITEM_OUT_TYPE_CD=#{searchType}
+										   AND ITEMOUT_DT BETWEEN #{searchFromDate} AND #{searchToDate})
+		   			</if>
+				</if>
+				<if test="searchFromDate != null and searchFromDate != '' and searchToDate != null  and searchToDate != ''">
+					   			AND ITEMIN.ITEMIN_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+				</if>
+
+                ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchItemInListTotCnt" parameterType="org.rnt.com.entity.vo.ItemOutMstVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM MWP012 ITEMIN
+	   WHERE 1 = 1
+	     AND ITEMIN.USE_YN = 'Y'
+		 <if test="searchType != null and searchType != ''">
+				  <if test="searchFromDate != null and searchFromDate != '' and searchToDate != null  and searchToDate != ''">
+							AND EXISTS (SELECT *
+										  FROM MWP015
+										 WHERE LOTID = ITEMIN.LOTID AND ITEM_OUT_TYPE_CD=#{searchType}
+										   AND ITEMOUT_DT BETWEEN #{searchFromDate} AND #{searchToDate})
+		   			</if>
+				</if>
+				<if test="searchFromDate != null and searchFromDate != '' and searchToDate != null  and searchToDate != ''">
+					   			AND ITEMIN.ITEMIN_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+				</if>
+    </select>
+
+    <select id="searchStorkQty" parameterType="org.rnt.com.entity.vo.ItemOutMstVO" resultType="org.rnt.com.entity.vo.ItemOutMstVO">
+       SELECT A.INOK_QTY-SUM(A.OUT_QTY) AS STORK_QTY
+       FROM(
+           SELECT  B.LOT_IDTL_ID
+                 , OUT_QTY
+                 , A.INOK_QTY
+                 , B.LOT_OUT_ID
+           FROM MWP013 A JOIN MWP015 B
+           ON A.LOT_IDTL_ID = B.LOT_IDTL_ID
+           ) A JOIN MWP015 B
+       ON A.LOT_IDTL_ID = B.LOT_IDTL_ID
+       WHERE B.LOT_OUT_ID = #{lotOutId}
+       GROUP BY A.LOT_IDTL_ID, A.INOK_QTY
+       ORDER BY A.LOT_IDTL_ID DESC
+    </select>
+
+    <select id="searchItemOutList" parameterType="org.rnt.com.entity.vo.ItemOutMstVO" resultType="org.rnt.com.entity.vo.ItemOutMstVO">
+    	SELECT ITEMOUT.FACTORY_CD
+		     , ITEMOUT.ITEMOUT_SEQ
+		     , TO_CHAR(TO_DATE(ITEMOUT.ITEMOUT_DT,'YYYYMMDD'),'YYYY/MM/DD') AS ITEMOUT_DT
+		     , ITEMOUT.PROD_SEQ
+		     , ITEMOUT.CUST_CD
+		     , (SELECT CUST_NM FROM MCC025 WHERE CUST_CD = ITEMOUT.CUST_CD) AS CUST_NM
+		     , ITEMOUT.ITEM_CD
+		     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = ITEMOUT.ITEM_CD) AS ITEM_NM
+		     , ITEMOUT.ITEM_OUT_TYPE_CD
+		     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_OUT_TYPE_CD' AND SCODE = ITEMOUT.ITEM_OUT_TYPE_CD) AS ITEM_OUT_TYPE_NM
+		     , ITEMOUT.OUT_QTY
+		     , ITEMOUT.LOTID
+		     , ITEMOUT.LOT_OUT_ID
+		     , ITEMOUT.USE_YN
+		     , ITEMOUT.WRITE_DT
+		     , ITEMOUT.WRITE_ID
+		     , ITEMOUT.UPDATE_DT
+		     , ITEMOUT.UPDATE_ID
+		  FROM MWP015 ITEMOUT
+		 WHERE 1 = 1
+		   AND ITEMOUT.USE_YN = 'Y'
+		   AND ITEMOUT.LOTID = #{searchLotid}
+		 ORDER BY ITEMOUT.ITEMOUT_SEQ ASC
+    </select>
+</mapper>

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mwp016">
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.ItemOutDtlVO">
+        INSERT INTO MWP016
+        (
+         FACTORY_CD
+        , ITEMOUT_SEQ
+        , ITEMOUTD_SEQ
+        , PROD_SEQ
+        , PROD_PO_NO
+        , ITEM_CD
+        , ITEM_NM
+        , OUTSIDE_QTY
+        , LOT_OUT_ID
+        , LOT_ODTL_ID 
+        , LOT_ODTL_WRDT 
+        , LOT_ODTL_SABUN 
+        , USE_YN
+        , WRITE_DT
+        , WRITE_ID
+        , UPDATE_DT
+        , UPDATE_ID
+        ) VALUES (
+         #{factoryCd}
+        , #{itemoutSeq}
+        , TABLE_SEQ_NEXTVAL('MWP016')
+        , #{prodSeq}
+        , #{prodPoNo}
+        , #{itemCd}
+        , #{itemNm}
+        , #{outsideQty}
+        , #{lotOutId}
+        , LOT_SEQ_NEXTVAL('DT')
+        , TO_CHAR(now(),'yyyy.mm.dd-hh24:mi:ss')
+        , (SELECT SABUN_ID FROM MCC019 WHERE LOGIN_ID = #{writeId})
+        , 'Y'
+        , now()
+        , #{writeId}
+        , now()
+        , #{updateId}
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.ItemOutDtlVO" resultType="org.rnt.com.entity.vo.ItemOutDtlVO">
+        SELECT FACTORY_CD
+            , ITEMOUT_SEQ
+            , ITEMOUTD_SEQ
+            , PROD_SEQ
+            , PROD_PO_NO
+            , ITEM_CD
+            , ITEM_NM
+            , (SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT CUST_CD FROM MCC015 WHERE ITEM_CD = A.ITEM_CD)) AS CUST_NM
+            , OUTSIDE_QTY
+            , LOT_OUT_ID
+            , LOT_ODTL_ID 
+            , LOT_ODTL_WRDT 
+            , LOT_ODTL_SABUN 
+            , USE_YN
+            , WRITE_DT
+            , WRITE_ID
+            , UPDATE_DT
+            , UPDATE_ID
+        FROM MWP016 A
+        WHERE 1=1 
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEMOUT_SEQ = #{itemoutSeq}
+          AND ITEMOUTD_SEQ = #{itemoutdSeq}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.ItemOutDtlVO">
+        UPDATE MWP016
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            <if test="prodSeq != null">,PROD_SEQ = #{prodSeq}</if>
+            <if test="prodPoNo != null">,PROD_PO_NO = #{prodPoNo}</if>
+            <if test="itemCd != null">,ITEM_CD = #{itemCd}</if>
+            <if test="itemNm != null">,ITEM_NM = #{itemNm}</if>
+            <if test="outsideQty != null">,OUTSIDE_QTY = #{outsideQty}</if>
+            <if test="lotOutId != null">,LOT_OUT_ID = #{lotOutId}</if>
+            <if test="lotOdtlId != null">,LOT_ODTL_ID = #{lotOdtlId}</if>
+            <if test="lotOdtlWrdt != null">,LOT_ODTL_WRDT = #{lotOdtlWrdt}</if>
+            <if test="lotOdtlSabun != null">,LOT_ODTL_SABUN = #{lotOdtlSabun}</if>
+            <if test="useYn != null">,USE_YN = #{useYn}</if>
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEMOUT_SEQ = #{itemoutSeq}
+          AND ITEMOUTD_SEQ = #{itemoutdSeq}
+    </update>
+
+    <update id="delete" parameterType="org.rnt.com.entity.vo.ItemOutDtlVO">
+        DELETE FROM MWP016
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEMOUT_SEQ = #{itemoutSeq}
+          AND ITEMOUTD_SEQ = #{itemoutdSeq}
+    </update>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.ItemOutDtlVO" resultType="org.rnt.com.entity.vo.ItemOutDtlVO">
+        SELECT *
+        FROM (
+            SELECT FACTORY_CD
+                 , ITEMOUT_SEQ
+                 , ITEMOUTD_SEQ
+                 , PROD_SEQ
+                 , PROD_PO_NO
+                 , ITEM_CD
+                 , ITEM_NM
+                 , (SELECT CUST_NM FROM MCC025 WHERE CUST_CD = (SELECT CUST_CD FROM MCC015 WHERE ITEM_CD = A.ITEM_CD)) AS CUST_NM
+                 , OUTSIDE_QTY
+                 , LOT_OUT_ID
+                 , LOT_ODTL_ID 
+                 , LOT_ODTL_WRDT 
+                 , LOT_ODTL_SABUN 
+                 , USE_YN
+                 , WRITE_DT
+                 , WRITE_ID
+                 , UPDATE_DT
+                 , UPDATE_ID
+                 , (SELECT ITEM_NO FROM MCC015 WHERE FACTORY_CD = A.FACTORY_CD AND ITEM_CD = A.ITEM_CD AND USE_YN = 'Y') AS ITEM_NO
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY ITEMOUTD_SEQ ASC) AS RNUM
+                 </if>
+            FROM MWP016 A
+            WHERE 1=1
+              AND USE_YN = 'Y'
+            <if test="searchItemoutSeq != null and searchItemoutSeq != ''">
+                AND ITEMOUT_SEQ = #{searchItemoutSeq}
+            </if>  
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.ItemOutDtlVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM MWP016
+        WHERE 1=1
+          AND USE_YN = 'Y'
+        <if test="searchItemoutSeq != null and searchItemoutSeq != ''">
+            AND ITEMOUT_SEQ = #{searchItemoutSeq}
+        </if>    
+    </select>
+</mapper>

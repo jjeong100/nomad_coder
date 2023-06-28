@@ -1,0 +1,225 @@
+@charset "utf-8";
+
+/* hjkim180705 h1태그 스타일 */
+#h1Style{
+	color:#ffffff;
+	text-shadow:1px 1px 2px #666666;
+	text-align:left;
+	margin-left:35px;
+	margin-top:50px;
+}
+
+/* 180704hjkim 로그인창 div 작은배경화면 */
+.entryOne{
+	float:left;
+	width:400px;
+	height:350px;
+	margin: 64px 0 0 80px;
+	border-right: 1px solid rgba(255, 255, 255, .4)
+}
+.entryTwo{
+	float:left;
+	width:400px;
+	height:350px;
+	/*background: #ffffff;*/
+}
+
+/* 180704hjkim 로그인창 전체담당 */
+#fullground{
+	/*background-image: url(../images/login_back_04.jpg);
+    background-repeat: no-repeat;
+    background-size: cover;*/
+	background-color: #F2F2F2
+}
+
+#login-background {
+	background: #9b9b9b;
+    width: 100%;
+	min-height: 100%;
+	margin-bottom: -82px;
+}
+
+#slick-login {
+	width: 220px;
+	height: 155px;
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	margin-left: -110px;
+	margin-top: -75px;
+
+	-webkit-animation: login 1s ease-in-out;
+	-moz-animation: login 1s ease-in-out;
+	-ms-animation: login 1s ease-in-out;
+	-o-animation: login 1s ease-in-out;
+	animation: login 1s ease-in-out;
+}
+
+/*
+#slick-login label {
+	display: none;
+}
+*/
+
+/* 180704hjkim 그림자효과및 2번째 레이아웃 크기조절 */
+#login-content {
+	position: absolute;
+	width: 922px;
+	height: 488px;
+	left:50%;
+	top:50%;
+	margin: -244px 0 0 -461px;
+	background-color: #9f9d91bf;
+	border-radius:29px
+}
+
+#login-header-title {
+	margin: 0 0 10px 20px;
+	font-weight: 500;
+	font-size: 38px;
+	color: #fff;
+}
+
+.login-table {
+	width: 100%;
+	margin:auto;
+}
+
+/* hjkim180705안쓰는 스타일삭제 */
+.username, .password {
+	height: 58px;
+	font-size: 14px;
+	color: #444;
+	outline: none;
+	border: 1px solid rgba(0, 0, 0, .49);
+	padding-left: 40px;
+	background-clip: padding-box;
+	transition: all .1s ease-in-out;
+	border-radius:29px;
+}
+
+
+/* hjkim180705 id,pw,아이디저장 크기및 이동 */
+#username{
+	width: 290px;
+	margin-top:10px;
+}
+#password{
+	width: 290px;
+	margin-top:10px;
+}
+#saveUserName {
+	margin-top:15px;
+}
+.entryOne label{
+	color: #fff!important
+}
+.entryOne .srch_id{
+	float: right;
+	margin: 14px 69px 0 0 ;
+	font-size: 15px;
+	color: #fff!important
+}
+.entryOne .srch_id a{
+	color: #fff!important;
+	text-decoration: none
+}
+
+.username:focus
+, .password:focus {
+	-webkit-box-shadow: inset 0px 2px 0px #a7a7a7;
+	box-shadow: inset 0px 2px 0px #a7a7a7;
+}
+
+
+.login-button-container {
+	margin-bottom: 40px;
+}
+
+
+/* hjkim180705 로그인버튼크기및 위치*/
+#loginButton, #loginButtonMobile {
+	display: inline-block;
+	border: 0px solid #ffffff;
+	background-color:#2A55D2;
+	background-repeat: no-repeat;
+	text-decoration: none;
+	cursor: pointer;
+	width:330px;
+	height:58px;
+	margin-top:25px;
+	border-radius: 28px;
+	font-size: 24px;
+	font-weight:500!important;
+	color : white;
+
+}
+/* hjkim180705 로그아웃버튼크기및 위치*/
+#loginButtonOperator{
+	display: inline-block;
+	border: 0px solid #ffffff;
+	color: white;
+	background-color: #2f63bb;
+	background-repeat: no-repeat;
+	text-decoration: none;
+	cursor: pointer;
+	width: 154px;
+	height: 51px;
+	margin-top: 40px;
+}
+
+.login-button:hover {
+	background-position: 0 -37px;
+}
+.login-button span {
+	line-height: 36px;
+	color: white;
+	font-size: 13px;
+	text-decoraton: none;
+	margin-left: 38px;
+}
+
+/* hjkim180705 id,pw,로고이미지 크기및 이동 */
+#logoImg{
+	 margin-left:55px;
+	 margin-top:80px;
+}
+#idImg{
+	position: absolute;
+	margin-top:84px;
+	margin-left:50px;
+	width:12px;
+}
+#pwImg{
+	position: absolute;
+	margin-top:30px;
+	margin-left:50px;
+	width:12px;
+}
+
+/*  180705hjkim 태그 크기및 색상 */
+ #spanStyle{
+ margin-top:75px;
+ margin-left:80px;
+ }
+ #spanStyleOne{
+ color:#4e4e4e;
+ font-size:14px;
+ }
+ #spanStyleTwo{
+ color:#2f63bb;
+ font-size:14px;
+ font-weight:bold;
+ }
+ #spanStyleThree{
+ color:#4e4e4e;
+ font-size:14px;
+ margin-left:70px;
+ }
+
+ .img{
+ display:inline-block;
+ vertical-align:middle;
+ max-height:100%;
+ max-width:100%;
+ }

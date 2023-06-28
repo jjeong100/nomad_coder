@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc042">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.StoreHouseVO">
+		INSERT INTO MCC042
+		(
+			 FACTORY_CD
+			,WORKSHOP_CD
+			,WORKSHOP_NM
+			,AREA_CD
+			,BIGO
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,#{workshopCd}
+			,#{workshopNm}
+			,#{areaCd}
+			,#{bigo}
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.StoreHouseVO" resultType="org.rnt.com.entity.vo.StoreHouseVO">
+		SELECT
+			 FACTORY_CD
+			,WORKSHOP_CD
+			,WORKSHOP_NM
+			,AREA_CD
+			,BIGO
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		FROM MCC042 A
+		WHERE 1=1 
+		  AND FACTORY_CD = #{factoryCd}
+		  AND WORKSHOP_CD = #{workshopCd}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.StoreHouseVO">
+		UPDATE MCC042
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="workshopNm != null">,WORKSHOP_NM = #{workshopNm}</if>
+			<if test="areaCd != null">,AREA_CD = #{areaCd}</if>
+			<if test="bigo != null">,BIGO = #{bigo}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND WORKSHOP_CD = #{workshopCd}
+	
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.StoreHouseVO">
+		UPDATE MCC042
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+		    ,USE_YN = 'N'
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND WORKSHOP_CD = #{workshopCd}
+	</update>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.StoreHouseVO" resultType="org.rnt.com.entity.vo.StoreHouseVO">
+		SELECT *
+		FROM (
+			SELECT FACTORY_CD
+			     , WORKSHOP_CD
+			     , WORKSHOP_NM
+			     , AREA_CD
+			     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'AREA_CD' AND SCODE = A.AREA_CD ) AS AREA_NM
+			     , BIGO
+			     , USE_YN
+			     , WRITE_DT
+			     , WRITE_ID
+			     , UPDATE_DT
+			     , UPDATE_ID
+			     <if test="sortCol != null">
+			     , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			     </if>
+			     <if test="sortCol == null">
+			     , ROW_NUMBER() OVER(ORDER BY UPDATE_DT DESC) AS RNUM
+			     </if>
+			FROM MCC042 A
+			WHERE 1=1
+			  AND USE_YN = 'Y'
+			  <if test="searchWorkshopNm != null and searchWorkshopNm != ''">
+                  AND WORKSHOP_NM LIKE '%'||#{searchWorkshopNm}||'%'
+              </if>
+              <if test="searchAreaCd != null and searchAreaCd != ''">
+                  AND AREA_CD = #{searchAreaCd}
+              </if>
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+		</if>
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.StoreHouseVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MCC042
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+		  <if test="searchWorkshopNm != null and searchWorkshopNm != ''">
+              AND WORKSHOP_NM LIKE '%'||#{searchWorkshopNm}||'%'
+          </if>
+          <if test="searchAreaCd != null and searchAreaCd != ''">
+              AND AREA_CD = #{searchAreaCd}
+          </if>
+	</select>
+</mapper>

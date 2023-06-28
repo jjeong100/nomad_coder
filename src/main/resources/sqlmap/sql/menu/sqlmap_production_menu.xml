@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="productionMenu">
+
+    <!-- ============================================================================================================================= -->
+    <!-- 작업지시 : Production Order                                                                                                      -->
+    <!-- ============================================================================================================================= -->
+    <update id="deleteMatRequire" parameterType="org.rnt.com.entity.vo.ProductionOrderVO">
+        DELETE FROM MPO007
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND PROD_SEQ = #{prodSeq}
+    </update>
+
+    <insert id="createMatRequire" parameterType="org.rnt.com.entity.vo.ProductionOrderVO">
+    INSERT INTO MPO007
+    (
+         FACTORY_CD
+        , OPMAT_SEQ
+        , PROD_SEQ
+        , ITEM_CD
+        , MAT_CD
+        , DEMAND_QTY
+        , USE_YN
+        , WRITE_DT
+        , WRITE_ID
+        , UPDATE_DT
+        , UPDATE_ID
+    )
+    SELECT PROD_ORDER.FACTORY_CD
+         , TABLE_SEQ_NEXTVAL('MPO007') AS OPMAT_SEQ
+         , PROD_ORDER.PROD_SEQ
+         , BOM.ITEM_CD
+         , BOM.MAT_CD
+         , PROD_ORDER.PO_QTY * BOM.DEMAND_QTY AS DEMAND_QTY
+         , 'Y' AS USE_YN
+         , now() AS WRITE_DT
+         , #{writeId} AS WRITE_ID
+         , now() AS UPDATE_DT
+         , #{updateId} AS UPDATE_ID
+    FROM MPO009 PROD_ORDER
+         INNER JOIN MCC020 BOM ON BOM.BOM_VER = PROD_ORDER.BOM_VER
+                               AND BOM.ITEM_CD = PROD_ORDER.ITEM_CD
+                               AND BOM.BOM_TYPE_CD = 'MT'
+         INNER JOIN MCC016 ITEM ON ITEM.ITEM_CD = BOM.ITEM_CD
+    WHERE PROD_ORDER.PROD_SEQ = #{prodSeq}
+    </insert>
+
+    <update id="deleteMstAct" parameterType="org.rnt.com.entity.vo.ProductionOrderVO">
+        DELETE FROM MPO010
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND PROD_SEQ = #{prodSeq}
+    </update>
+
+    <insert id="createMstAct" parameterType="org.rnt.com.entity.vo.ProductionOrderVO">
+    INSERT INTO MPO010
+    (
+         FACTORY_CD
+        , WORKACT_MST_SEQ
+        , PROD_SEQ
+        , OPER_CD
+        , OPER_LVL
+        , LAST_OPER_YN
+        , ITEM_CD
+        , ASSIGN_QTY
+        , WORK_QTY
+        , ACTOK_QTY
+        , ACTBAD_QTY
+        , CONFIRM_QTY
+        , USE_YN
+        , WRITE_DT
+        , WRITE_ID
+        , UPDATE_DT
+        , UPDATE_ID
+    )
+    SELECT PRODUCTION_ORDER.FACTORY_CD
+         , TABLE_SEQ_NEXTVAL('MPO010') AS WORKACT_MST_SEQ
+         , PRODUCTION_ORDER.PROD_SEQ
+         , BOM.OPER_CD
+         , BOM.BOM_LEVEL
+         , CASE WHEN BOM.BOM_LEVEL = (SELECT MAX(BOM_LEVEL) FROM MCC020 WHERE BOM_TYPE_CD = 'OP' AND ITEM_CD = BOM.ITEM_CD AND BOM_VER = BOM.BOM_VER) THEN 'Y' ELSE 'N' END AS LAST_OPER_YN
+         , BOM.ITEM_CD
+         , 0 AS ASSIGN_QTY
+         , 0 AS WORK_QTY
+         , 0 AS ACTOK_QTY
+         , 0 AS ACTBAD_QTY
+         , 0 AS CONFIRM_QTY
+         , 'Y' AS USE_YN
+         , now() AS WRITE_DT
+         , #{writeId} AS WRITE_ID
+         , now() AS UPDATE_DT
+         , #{updateId} AS UPDATE_ID
+       FROM MPO009 PRODUCTION_ORDER INNER JOIN MCC020 BOM
+         ON PRODUCTION_ORDER.BOM_VER = BOM.BOM_VER
+        AND PRODUCTION_ORDER.ITEM_CD = BOM.ITEM_CD
+        AND PRODUCTION_ORDER.PROD_SEQ = #{prodSeq}
+        AND BOM.BOM_TYPE_CD = 'OP'
+    </insert>
+
+    <select id="productionOperList" parameterType="org.rnt.com.entity.vo.ProductionMstActVO" resultType="org.rnt.com.entity.vo.ProductionMstActVO">
+        SELECT *
+          FROM (
+                  SELECT '0' AS WORKACT_MST_SEQ
+                       , A.PROD_SEQ
+                       , A.OPER_CD
+                       , '자재출고' AS OPER_NM
+                       , (
+                        SELECT CASE WHEN MAX(MAT_REQ_QTY) = 0 THEN 'END'
+                                       WHEN MAX(MAT_REQ_QTY) > 0 AND  MAX(MAT_OUT_CNT) = 0 THEN 'WAIT'
+                                    WHEN MIN(MAT_OUT_CNT) > 0 AND  MIN(END_YN)='Y' THEN 'END'
+                                    ELSE 'ING'
+                               END
+                          FROM (
+                               SELECT
+                                    CASE WHEN(PO_QTY*DEMAND_QTY)/1000  <![CDATA[<=]]> MATOUT.OUT_CNT THEN 'Y' ELSE 'N' END AS END_YN,
+                                    (PO_QTY*DEMAND_QTY)/1000 AS MAT_REQ_QTY,
+                                    COALESCE(MATOUT.COUNT,0) AS MAT_OUT_CNT
+                                                  FROM MPO009 PROD
+                                                  INNER JOIN MCC020 BOM ON PROD.ITEM_CD=BOM.ITEM_CD AND BOM.BOM_TYPE_CD='MT'
+                                                       LEFT OUTER JOIN (SELECT PROD_SEQ
+                                                                             , MAT_CD
+                                                                             , SUM(OUT_CNT) AS OUT_CNT
+                                                                             , count(*)
+                                                                          FROM MMA024
+                                                                         WHERE MAT_OUT_TYPE_CD = 'GOUT'
+                                                                         GROUP BY PROD_SEQ, MAT_CD
+                                                                        ) MATOUT ON MATOUT.PROD_SEQ = PROD.PROD_SEQ AND MATOUT.MAT_CD=BOM.MAT_CD
+                                                WHERE PROD.PROD_SEQ = #{searchProdSeq}
+                                ) A
+                        ) AS STATUS_CD
+                       , 0 AS OPER_LVL
+                     , 0 AS ASSIGN_QTY
+                     , 0 AS WORK_QTY
+                     , 0 AS ACTOK_QTY
+                     , 0 AS ACTBAD_QTY
+                     , 0 AS CONFIRM_QTY
+                    FROM (SELECT CAST('MAT_OUT' AS VARCHAR) AS OPER_CD, CAST(#{searchProdSeq} AS VARCHAR) AS PROD_SEQ) A
+                  UNION ALL
+                  SELECT A.WORKACT_MST_SEQ
+                     , #{searchProdSeq} AS PROD_SEQ
+                     , A.OPER_CD
+                     , (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = A.OPER_CD) AS OPER_NM
+                     , (CASE
+                             WHEN B.ACTOK_QTY + B.ACTBAD_QTY >= A.ASSIGN_QTY AND B.CONFIRM_YN = 'Y' THEN 'END'
+                             WHEN B.PO_QTY > 0 THEN 'ING'
+                             ELSE 'WAT'
+                         END) AS STATUS_CD
+                     , A.OPER_LVL
+                     , A.ASSIGN_QTY
+                     , A.WORK_QTY
+                     , A.ACTOK_QTY
+                     , A.ACTBAD_QTY
+                     , A.CONFIRM_QTY
+                  FROM MPO010 A
+                LEFT OUTER JOIN MCC030 C ON C.OPER_CD = A.OPER_CD
+                LEFT OUTER JOIN (SELECT PROD_SEQ
+                                         , OPER_CD
+                                         , MAX(PO_QTY) AS PO_QTY
+                                         , SUM(ACTOK_QTY) AS ACTOK_QTY
+                                         , SUM(ACTBAD_QTY) AS ACTBAD_QTY
+                                         , MAX(COALESCE(PROD_TYPE_CD, 'ING')) AS PROD_TYPE_CD
+                                         , MIN(COALESCE(CONFIRM_YN, 'N')) AS CONFIRM_YN
+                                      FROM MPO011
+                                     GROUP BY PROD_SEQ, OPER_CD) B ON B.PROD_SEQ = A.PROD_SEQ
+                                                                   AND B.OPER_CD = A.OPER_CD
+                 WHERE 1 = 1
+                   AND A.PROD_SEQ = #{searchProdSeq}
+                  ) A
+         ORDER BY OPER_LVL
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 월 마감 관리 : MonthClose                                                                                                         -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchMonthCloseList" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="org.rnt.material.vo.MonthCloseOutVO">
+        SELECT *
+        FROM (
+            SELECT A.WORKSHOP_CD
+                 , (SELECT WORKSHOP_NM FROM MCC042 WHERE WORKSHOP_CD = A.WORKSHOP_CD) AS WORKSHOP_NM
+                 , to_char(to_date(A.MAGAM_YYYYMM,'YYYYMM'),'YYYY/MM') AS MAGAM_YYYYMM
+                 , CASE WHEN A.MAGAM_YMD = 'N/A' THEN A.MAGAM_YMD ELSE to_char(to_date(A.MAGAM_YMD,'YYYYMMDD'),'YYYY/MM/DD') END AS MAGAM_YMD
+                 , A.MAGAM_YN
+                 , A.MENDYN_SEQ
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY WORKSHOP_CD ASC, MAGAM_YYYYMM DESC) AS RNUM
+                 </if>
+            FROM (
+                SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+                      ,CASE WHEN B.WORKSHOP_CD IS NULL THEN A.MAGAM_YYYYMM ELSE B.MAGAM_YYYYMM END AS MAGAM_YYYYMM
+                      ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YMD AS VARCHAR) ELSE cast(B.MAGAM_YMD AS VARCHAR) END AS MAGAM_YMD
+                      ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YN AS VARCHAR) ELSE cast(B.MAGAM_YN AS VARCHAR) END AS MAGAM_YN
+                      ,CASE WHEN B.WORKSHOP_CD IS NULL THEN null ELSE cast(B.MENDYN_SEQ AS VARCHAR) END AS MENDYN_SEQ
+                FROM (
+                    SELECT WORKSHOP_CD, MAGAM_YYYYMM, 'N/A' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                    FROM (
+                        SELECT WORKSHOP_CD, SUBSTR(ITEMIN_DT,1,6) AS MAGAM_YYYYMM
+                        FROM MWP012
+                        WHERE 1=1
+                          AND ITEMIN_DT BETWEEN #{searchFromDate}||'01' AND #{searchToDate}||'31' /* 화면에서 월조건(YYYYMM) SET */
+                          <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                             AND WORKSHOP_CD = #{searchWorkshopCd}
+                           </if>
+                        UNION ALL
+                        SELECT COALESCE(NULLIF(#{searchWorkshopCd},'')::VARCHAR,'DW00002') AS WORKSHOP_CD, SUBSTR(ITEMOUT_DT,1,6) AS MAGAM_YYYYMM
+                        FROM MWP015
+                         WHERE 1=1
+                           AND ITEMOUT_DT BETWEEN #{searchFromDate}||'01' AND #{searchToDate}||'31' /* 화면에서 월조건(YYYYMM) SET */
+<!--                            <if test="searchWorkshopCd != null and searchWorkshopCd != ''"> -->
+<!--                              AND WORKSHOP_CD = {searchWorkshopCd} -->
+<!--                            </if> -->
+                    ) A
+                    GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+                ) A LEFT OUTER JOIN
+                (
+                    SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                    FROM MWP005
+                    GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+                WHERE 1=1
+                  AND A.MAGAM_YYYYMM BETWEEN #{searchFromDate} AND #{searchToDate} /* 화면에서 월조건(YYYYMM) SET */
+                  <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                    AND A.WORKSHOP_CD = #{searchWorkshopCd}
+                  </if>
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchMonthCloseListTotCnt" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="java.lang.Integer">
+        SELECT COUNT(WORKSHOP_CD) AS TOT_CNT
+        FROM (
+            SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+            FROM (
+                SELECT WORKSHOP_CD, MAGAM_YYYYMM, '' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                FROM (
+                     SELECT WORKSHOP_CD, SUBSTR(ITEMIN_DT,1,6) AS MAGAM_YYYYMM
+                        FROM MWP012
+                        WHERE 1=1
+                          AND ITEMIN_DT BETWEEN #{searchFromDate}||'01' AND #{searchToDate}||'31' /* 화면에서 월조건(YYYYMM) SET */
+                          <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                             AND WORKSHOP_CD = #{searchWorkshopCd}
+                           </if>
+                        UNION ALL
+                        SELECT COALESCE(NULLIF(#{searchWorkshopCd},'')::VARCHAR,'DW00002') AS WORKSHOP_CD, SUBSTR(ITEMOUT_DT,1,6) AS MAGAM_YYYYMM
+                        FROM MWP015
+                         WHERE 1=1
+                           AND ITEMOUT_DT BETWEEN #{searchFromDate}||'01' AND #{searchToDate}||'31' /* 화면에서 월조건(YYYYMM) SET */
+<!--                            <if test="searchWorkshopCd != null and searchWorkshopCd != ''"> -->
+<!--                              AND WORKSHOP_CD = {searchWorkshopCd} -->
+<!--                            </if> -->
+                ) A
+                GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+            ) A LEFT OUTER JOIN
+            (
+                SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN
+                FROM MWP005
+                WHERE 1=1
+                  AND MAGAM_YYYYMM BETWEEN #{searchFromDate} AND #{searchToDate} /* 화면에서 월조건(YYYYMM) SET */
+                 <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                 AND WORKSHOP_CD = #{searchWorkshopCd}
+                 </if>
+                GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN
+            ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+        ) A
+    </select>
+
+    <select id="selectMinUnCloseMonth" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="java.lang.String">
+        SELECT MIN(MAGAM_YYYYMM) AS MAGAM_YYYYMM
+        FROM (
+            SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN A.MAGAM_YYYYMM ELSE B.MAGAM_YYYYMM END AS MAGAM_YYYYMM
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YN AS VARCHAR) ELSE cast(B.MAGAM_YN AS VARCHAR) END AS MAGAM_YN
+            FROM (
+                SELECT WORKSHOP_CD, MAGAM_YYYYMM, 'N/A' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                FROM (
+                   SELECT WORKSHOP_CD, SUBSTR(ITEMIN_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MWP012
+                    WHERE 1=1
+                      AND WORKSHOP_CD = #{workshopCd}
+                    UNION ALL
+                    SELECT COALESCE(NULLIF(#{workshopCd},'')::VARCHAR,'DW00002') AS WORKSHOP_CD, SUBSTR(ITEMOUT_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MWP015
+                    WHERE 1=1
+                      --AND WORKSHOP_CD = 'DW00002'
+                ) A
+                GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+            ) A LEFT OUTER JOIN
+            (
+                SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                FROM MWP005
+                WHERE 1=1
+                  AND WORKSHOP_CD = #{workshopCd}
+                GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+            ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+        ) A
+        WHERE 1=1
+          AND MAGAM_YN = 'N'
+    </select>
+    
+    <select id="selectMaxCloseMonth" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="java.lang.String">
+    SELECT MAX(MAGAM_YYYYMM) AS MAGAM_YYYYMM
+        FROM (
+            SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN A.MAGAM_YYYYMM ELSE B.MAGAM_YYYYMM END AS MAGAM_YYYYMM
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YN AS VARCHAR) ELSE cast(B.MAGAM_YN AS VARCHAR) END AS MAGAM_YN
+            FROM (
+                SELECT WORKSHOP_CD, MAGAM_YYYYMM, 'N/A' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                FROM (
+                    SELECT WORKSHOP_CD, SUBSTR(ITEMIN_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MWP012
+                    WHERE 1=1
+                      AND WORKSHOP_CD = #{workshopCd}
+                    UNION ALL
+                    SELECT COALESCE(NULLIF(#{workshopCd},'')::VARCHAR,'DW00002'), SUBSTR(ITEMOUT_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MWP015
+                    WHERE 1=1
+                      --AND WORKSHOP_CD = 'DW00002'
+                ) A
+                GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+            ) A LEFT OUTER JOIN
+            (
+                SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                FROM MWP005
+                WHERE 1=1
+                  AND WORKSHOP_CD = #{workshopCd}
+                GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+            ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+        ) A
+        WHERE 1=1
+          AND MAGAM_YN = 'Y'
+    </select>
+    
+    <select id="selectMaxCloseMonthAndDiffMonth" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="java.lang.Integer">
+        SELECT ((date_part('year',TO_DATE(REGEXP_REPLACE(#{magamYyyymm}, '[^0-9]', '', 'g'),'YYYYMMDD')) - date_part('year',TO_DATE(MAX(MAGAM_YYYYMM),'YYYYMM'))) * 12) + date_part('month',TO_DATE(REGEXP_REPLACE(#{magamYyyymm}, '[^0-9]', '', 'g'),'YYYYMMDD')) - date_part('month',TO_DATE(MAX(MAGAM_YYYYMM),'YYYYMM')) AS DIFF_MONTH
+        FROM (
+            SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN A.MAGAM_YYYYMM ELSE B.MAGAM_YYYYMM END AS MAGAM_YYYYMM
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YN AS VARCHAR) ELSE cast(B.MAGAM_YN AS VARCHAR) END AS MAGAM_YN
+            FROM (
+                SELECT WORKSHOP_CD, MAGAM_YYYYMM, 'N/A' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                FROM (
+                   SELECT WORKSHOP_CD, MAGAM_YYYYMM, 'N/A' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                FROM (
+                    SELECT WORKSHOP_CD, SUBSTR(ITEMIN_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MWP012
+                    WHERE 1=1
+                      AND WORKSHOP_CD = #{workshopCd}
+                    UNION ALL
+                    SELECT COALESCE(NULLIF(#{workshopCd},'')::VARCHAR,'DW00002') AS WORKSHOP_CD, SUBSTR(ITEMOUT_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MWP015
+                    WHERE 1=1
+                      --AND WORKSHOP_CD = 'DW00002'
+                ) A
+                GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+            ) A LEFT OUTER JOIN
+            (
+                SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                FROM MWP005
+                WHERE 1=1
+                  AND WORKSHOP_CD = #{workshopCd}
+                GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+            ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+        ) A
+        WHERE 1=1
+          AND MAGAM_YN = 'Y'
+    </select>
+</mapper>

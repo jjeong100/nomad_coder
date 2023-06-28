@@ -1,0 +1,464 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="materialMenu">
+
+    <!-- ============================================================================================================================= -->
+    <!-- 재고 현황 : Stock                                                                                                                -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchStockList" parameterType="org.rnt.material.vo.StockInVO" resultType="org.rnt.material.vo.StockOutVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY SB_DT ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT WORKSHOP_CD
+                     ,(SELECT WORKSHOP_NM FROM MCC042 WHERE WORKSHOP_CD = A.WORKSHOP_CD) AS WORKSHOP_NM
+                     , MAT_CD
+                     ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = A.MAT_CD) AS MAT_NM
+                     , SUM(BASE_QTY) AS BASE_QTY     /* 기초재고 */
+                     , SUM(IN_QTY) AS IN_QTY         /* 입고      */
+                     , SUM(GOUT_QTY) AS GOUT_QTY     /* 공정출고 */
+                     , SUM(GRNT_QTY) AS GRNT_QTY     /* 공정반환 */
+                     , SUM(DISUSE_QTY) AS DISUSE_QTY /* 폐기      */
+                     , SUM(MODIFY_QTY) AS MODIFY_QTY /* 재고조정 */
+                     , SB_DT
+                FROM (
+                    SELECT IN_DT AS SB_DT, WORKSHOP_CD, MAT_CD, 0 AS BASE_QTY, IN_CNT AS IN_QTY, 0 AS GOUT_QTY, 0 AS GRNT_QTY, 0 AS DISUSE_QTY, 0 AS MODIFY_QTY
+                    FROM MMA022 /* 입고 */
+                    WHERE 1=1
+                      AND USE_YN = 'Y'
+                      AND IN_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+                      <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                      AND WORKSHOP_CD = #{searchWorkshopCd}
+                      </if>
+                      <if test="searchMatCd != null and searchMatCd != ''">
+                      AND MAT_CD = #{searchMatCd}
+                      </if>
+                    UNION ALL
+                    SELECT OUT_DT AS SB_DT, WORKSHOP_CD, MAT_CD, 0 AS BASE_QTY, 0 AS IN_QTY
+                         , CASE WHEN MAT_OUT_TYPE_CD = 'GOUT' THEN OUT_CNT ELSE 0 END AS GOUT_QTY
+                         , CASE WHEN MAT_OUT_TYPE_CD = 'GRNT' THEN OUT_CNT ELSE 0 END AS GRNT_QTY
+                         , CASE WHEN MAT_OUT_TYPE_CD = 'DISUSE' THEN OUT_CNT ELSE 0 END AS DISUSE_QTY
+                         , CASE WHEN MAT_OUT_TYPE_CD = 'MODIFY' THEN OUT_CNT ELSE 0 END AS MODIFY_QTY
+                    FROM MMA024 /* 출고 */
+                    WHERE 1=1
+                      AND USE_YN = 'Y'
+                      AND OUT_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+                      <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                      AND WORKSHOP_CD = #{searchWorkshopCd}
+                      </if>
+                      <if test="searchMatCd != null and searchMatCd != ''">
+                      AND MAT_CD = #{searchMatCd}
+                      </if>
+                ) A
+                GROUP BY SB_DT,WORKSHOP_CD, MAT_CD
+                ORDER BY SB_DT,WORKSHOP_CD, MAT_CD
+            ) A
+            ORDER BY WORKSHOP_CD, MAT_CD ASC
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchStockListTotCnt" parameterType="org.rnt.material.vo.StockInVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM (
+            SELECT MAT_CD
+            FROM (
+                SELECT IN_DT AS SB_DT, WORKSHOP_CD, MAT_CD, 0 AS BASE_QTY, IN_CNT AS IN_QTY, 0 AS GOUT_QTY, 0 AS GRNT_QTY, 0 AS DISUSE_QTY, 0 AS MODIFY_QTY
+                FROM MMA022 /* 입고 */
+                WHERE 1=1
+                  AND IN_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+                  <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                  AND WORKSHOP_CD = #{searchWorkshopCd}
+                  </if>
+                  <if test="searchMatCd != null and searchMatCd != ''">
+                  AND MAT_CD = #{searchMatCd}
+                  </if>
+                UNION ALL
+                SELECT OUT_DT AS SB_DT, WORKSHOP_CD, MAT_CD, 0 AS BASE_QTY, 0 AS IN_QTY
+                     , CASE WHEN MAT_OUT_TYPE_CD = 'GOUT' THEN OUT_CNT ELSE 0 END AS GOUT_QTY
+                     , CASE WHEN MAT_OUT_TYPE_CD = 'GRNT' THEN OUT_CNT ELSE 0 END AS GRNT_QTY
+                     , CASE WHEN MAT_OUT_TYPE_CD = 'DISUSE' THEN OUT_CNT ELSE 0 END AS DISUSE_QTY
+                     , CASE WHEN MAT_OUT_TYPE_CD = 'MODIFY' THEN OUT_CNT ELSE 0 END AS MODIFY_QTY
+                FROM MMA024 /* 출고 */
+                WHERE 1=1
+                  AND OUT_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+                  <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                  AND WORKSHOP_CD = #{searchWorkshopCd}
+                  </if>
+                  <if test="searchMatCd != null and searchMatCd != ''">
+                  AND MAT_CD = #{searchMatCd}
+                  </if>
+            ) A
+            GROUP BY SB_DT,WORKSHOP_CD, MAT_CD
+        ) A
+    </select>
+
+    <select id="selectStockMatQtySum" parameterType="org.rnt.material.vo.StockInVO" resultType="java.lang.String">
+                /*====================================================================================*/
+                /* 기초재고         + 입고                - 공정출고               + 공정반환              - 폐기                       + 재고조정 */
+                /*====================================================================================*/
+        SELECT  CAST(CAST(SUM(BASE_QTY) + SUM(IN_QTY) - SUM(GOUT_QTY) + SUM(GRNT_QTY) - SUM(DISUSE_QTY) + SUM(MODIFY_QTY) AS DECIMAL) AS FLOAT) AS QtySum
+        FROM (
+            SELECT IN_DT AS SB_DT, WORKSHOP_CD, MAT_CD, 0 AS BASE_QTY, IN_CNT AS IN_QTY, 0 AS GOUT_QTY, 0 AS GRNT_QTY, 0 AS DISUSE_QTY, 0 AS MODIFY_QTY
+            FROM MMA022 /* 입고 */
+            WHERE 1=1
+              AND IN_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+              AND WORKSHOP_CD = #{searchWorkshopCd}
+              AND MAT_CD = #{searchMatCd}
+            UNION ALL
+            SELECT OUT_DT AS SB_DT, WORKSHOP_CD, MAT_CD, 0 AS BASE_QTY, 0 AS IN_QTY
+                 , CASE WHEN MAT_OUT_TYPE_CD = 'GOUT' THEN OUT_CNT ELSE 0 END AS GOUT_QTY
+                 , CASE WHEN MAT_OUT_TYPE_CD = 'GRNT' THEN OUT_CNT ELSE 0 END AS GRNT_QTY
+                 , CASE WHEN MAT_OUT_TYPE_CD = 'DISUSE' THEN OUT_CNT ELSE 0 END AS DISUSE_QTY
+                 , CASE WHEN MAT_OUT_TYPE_CD = 'MODIFY' THEN OUT_CNT ELSE 0 END AS MODIFY_QTY
+            FROM MMA024 /* 출고 */
+            WHERE 1=1
+              AND OUT_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+              AND WORKSHOP_CD = #{searchWorkshopCd}
+              AND MAT_CD = #{searchMatCd}
+            UNION ALL
+            SELECT IN_DT AS SB_DT, WORKSHOP_CD, MAT_CD, SUM(IN_CNT - COALESCE(IN_BAD_CNT, 0) - OUT_CNT) AS BASE_QTY, 0 AS IN_QTY, 0 AS GOUT_QTY, 0 AS GRNT_QTY, 0 AS DISUSE_QTY, 0 AS MODIFY_QTY
+              FROM MMA022 /* 마감 */
+                   CROSS JOIN (SELECT COALESCE(SUM(OUT_CNT), 0) AS OUT_CNT FROM MMA024 WHERE MAT_OUT_TYPE_CD = 'MODIFY' AND OUT_DT <![CDATA[<]]> #{searchFromDate}) B
+              WHERE 1=1
+                AND USE_YN = 'Y'
+                AND IN_DT <![CDATA[<]]> #{searchFromDate}
+                AND WORKSHOP_CD = #{searchWorkshopCd}
+                AND MAT_CD = #{searchMatCd}
+              GROUP BY IN_DT, WORKSHOP_CD, MAT_CD, BASE_QTY
+        ) A
+    </select>
+
+    <!-- ============================================================================================================================= -->
+    <!-- 수불 현황 : Subul                                                                                                                -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchSubulList" parameterType="org.rnt.material.vo.SubulInVO" resultType="org.rnt.material.vo.SubulOutVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY SB_DT ASC, MAT_CD ASC) AS RNUM
+                 </if>
+            FROM (
+                SELECT A.WORKSHOP_CD
+                     ,(SELECT WORKSHOP_NM FROM MCC042 WHERE WORKSHOP_CD = A.WORKSHOP_CD) AS WORKSHOP_NM
+                     ,to_char(to_date(A.SB_DT,'YYYYMMDD'),'YYYY/MM/DD') AS SB_DT
+                     ,A.MAT_CD
+                     ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = A.MAT_CD) AS MAT_NM
+                     ,GUBUN
+                     ,LOTID
+                     ,CAST(CAST(MAT_CNT AS DECIMAL) AS FLOAT) AS MAT_CNT
+                FROM (
+                    SELECT WORKSHOP_CD
+                         , IN_DT AS SB_DT
+                         , MAT_CD
+                         , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_IN_TYPE_CD' AND SCODE = A.MAT_IN_TYPE_CD ) AS GUBUN
+                         ,LOTID
+                         ,IN_CNT AS MAT_CNT
+                    FROM MMA022 A
+                    WHERE 1=1
+                      AND IN_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+                      <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                      AND WORKSHOP_CD = #{searchWorkshopCd}
+                      </if>
+                    UNION ALL
+                    SELECT WORKSHOP_CD
+                         , OUT_DT AS SB_DT
+                         , MAT_CD
+                         , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_OUT_TYPE_CD' AND SCODE = A.MAT_OUT_TYPE_CD ) AS GUBUN
+                         ,LOTID
+                         ,OUT_CNT AS MAT_CNT
+                    FROM MMA024 A
+                    WHERE 1=1
+                      AND OUT_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+                      <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                      AND WORKSHOP_CD = #{searchWorkshopCd}
+                      </if>
+                ) A
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchSubulListTotCnt" parameterType="org.rnt.material.vo.SubulInVO" resultType="java.lang.Integer">
+        SELECT COUNT(WORKSHOP_CD) AS TOT_CNT
+        FROM (
+            SELECT A.WORKSHOP_CD
+                 ,(SELECT WORKSHOP_NM FROM MCC042 WHERE WORKSHOP_CD = A.WORKSHOP_CD) AS WORKSHOP_NM
+                 ,to_char(to_date(A.SB_DT,'YYYYMMDD'),'YYYY/MM/DD') AS SB_DT
+                 ,A.MAT_CD
+                 ,(SELECT MAT_NM FROM MCC010 WHERE MAT_CD = A.MAT_CD) AS MAT_NM
+                 ,GUBUN
+                 ,LOTID
+                 ,CAST(CAST(MAT_CNT AS DECIMAL) AS FLOAT) AS MAT_CNT
+            FROM (
+                SELECT WORKSHOP_CD
+                     , IN_DT AS SB_DT
+                     , MAT_CD
+                     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_IN_TYPE_CD' AND SCODE = A.MAT_IN_TYPE_CD ) AS GUBUN
+                     ,LOTID
+                     ,IN_CNT AS MAT_CNT
+                FROM MMA022 A
+                WHERE 1=1
+                  AND IN_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+                  <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                  AND WORKSHOP_CD = #{searchWorkshopCd}
+                  </if>
+                UNION ALL
+                SELECT WORKSHOP_CD
+                     , OUT_DT AS SB_DT
+                     , MAT_CD
+                     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'MAT_OUT_TYPE_CD' AND SCODE = A.MAT_OUT_TYPE_CD ) AS GUBUN
+                     ,LOTID
+                     ,OUT_CNT AS MAT_CNT
+                FROM MMA024 A
+                WHERE 1=1
+                  AND OUT_DT BETWEEN #{searchFromDate} AND #{searchToDate}
+                  <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                  AND WORKSHOP_CD = #{searchWorkshopCd}
+                  </if>
+                  ) A
+        ) A
+    </select>
+
+    <!-- ============================================================================================================================= -->
+    <!-- 월 마감 관리 : MonthClose                                                                                                         -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchMonthCloseList" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="org.rnt.material.vo.MonthCloseOutVO">
+        SELECT *
+        FROM (
+            SELECT A.WORKSHOP_CD
+                 , (SELECT WORKSHOP_NM FROM MCC042 WHERE WORKSHOP_CD = A.WORKSHOP_CD) AS WORKSHOP_NM
+                 , to_char(to_date(A.MAGAM_YYYYMM,'YYYYMM'),'YYYY/MM') AS MAGAM_YYYYMM
+                 , CASE WHEN A.MAGAM_YMD = 'N/A' THEN A.MAGAM_YMD ELSE to_char(to_date(A.MAGAM_YMD,'YYYYMMDD'),'YYYY/MM/DD') END AS MAGAM_YMD
+                 , A.MAGAM_YN
+                 , A.MENDYN_SEQ
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY WORKSHOP_CD ASC, MAGAM_YYYYMM DESC) AS RNUM
+                 </if>
+            FROM (
+                SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+                      ,CASE WHEN B.WORKSHOP_CD IS NULL THEN A.MAGAM_YYYYMM ELSE B.MAGAM_YYYYMM END AS MAGAM_YYYYMM
+                      ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YMD AS VARCHAR) ELSE cast(B.MAGAM_YMD AS VARCHAR) END AS MAGAM_YMD
+                      ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YN AS VARCHAR) ELSE cast(B.MAGAM_YN AS VARCHAR) END AS MAGAM_YN
+                      ,CASE WHEN B.WORKSHOP_CD IS NULL THEN null ELSE cast(B.MENDYN_SEQ AS VARCHAR) END AS MENDYN_SEQ
+                FROM (
+                    SELECT WORKSHOP_CD, MAGAM_YYYYMM, 'N/A' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                    FROM (
+                        SELECT WORKSHOP_CD, SUBSTR(IN_DT,1,6) AS MAGAM_YYYYMM
+                        FROM MMA022
+                        WHERE 1=1
+                          AND IN_DT BETWEEN #{searchFromDate}||'01' AND #{searchToDate}||'31' /* 화면에서 월조건(YYYYMM) SET */
+                          <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                             AND WORKSHOP_CD = #{searchWorkshopCd}
+                           </if>
+                        UNION ALL
+                        SELECT WORKSHOP_CD, SUBSTR(OUT_DT,1,6) AS MAGAM_YYYYMM
+                        FROM MMA024
+                         WHERE 1=1
+                           AND OUT_DT BETWEEN #{searchFromDate}||'01' AND #{searchToDate}||'31' /* 화면에서 월조건(YYYYMM) SET */
+                           <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                             AND WORKSHOP_CD = #{searchWorkshopCd}
+                           </if>
+                    ) A
+                    GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+                ) A LEFT OUTER JOIN
+                (
+                    SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                    FROM MWP005
+                    GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+                WHERE 1=1
+                  AND A.MAGAM_YYYYMM BETWEEN #{searchFromDate} AND #{searchToDate} /* 화면에서 월조건(YYYYMM) SET */
+                  <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                    AND A.WORKSHOP_CD = #{searchWorkshopCd}
+                  </if>
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchMonthCloseListTotCnt" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="java.lang.Integer">
+        SELECT COUNT(WORKSHOP_CD) AS TOT_CNT
+        FROM (
+            SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+            FROM (
+                SELECT WORKSHOP_CD, MAGAM_YYYYMM, '' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                FROM (
+                    SELECT WORKSHOP_CD, SUBSTR(IN_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MMA022
+                    WHERE 1=1
+                      AND IN_DT BETWEEN #{searchFromDate}||'01' AND #{searchToDate}||'31' /* 화면에서 월조건(YYYYMM) SET */
+                      <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                         AND WORKSHOP_CD = #{searchWorkshopCd}
+                      </if>
+                    UNION ALL
+                    SELECT WORKSHOP_CD, SUBSTR(OUT_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MMA024
+                     WHERE 1=1
+                       AND OUT_DT BETWEEN #{searchFromDate}||'01' AND #{searchToDate}||'31' /* 화면에서 월조건(YYYYMM) SET */
+                       <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                         AND WORKSHOP_CD = #{searchWorkshopCd}
+                      </if>
+                ) A
+                GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+            ) A LEFT OUTER JOIN
+            (
+                SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN
+                FROM MWP005
+                WHERE 1=1
+                  AND MAGAM_YYYYMM BETWEEN #{searchFromDate} AND #{searchToDate} /* 화면에서 월조건(YYYYMM) SET */
+                 <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+                 AND WORKSHOP_CD = #{searchWorkshopCd}
+                 </if>
+                GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN
+            ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+        ) A
+    </select>
+
+    <select id="selectMinUnCloseMonth" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="java.lang.String">
+        SELECT MIN(MAGAM_YYYYMM) AS MAGAM_YYYYMM
+        FROM (
+            SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN A.MAGAM_YYYYMM ELSE B.MAGAM_YYYYMM END AS MAGAM_YYYYMM
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YN AS VARCHAR) ELSE cast(B.MAGAM_YN AS VARCHAR) END AS MAGAM_YN
+            FROM (
+                SELECT WORKSHOP_CD, MAGAM_YYYYMM, 'N/A' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                FROM (
+                    SELECT WORKSHOP_CD, SUBSTR(IN_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MMA022
+                    WHERE 1=1
+                      AND WORKSHOP_CD = #{workshopCd}
+                    UNION ALL
+                    SELECT WORKSHOP_CD, SUBSTR(OUT_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MMA024
+                    WHERE 1=1
+                      AND WORKSHOP_CD = #{workshopCd}
+                ) A
+                GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+            ) A LEFT OUTER JOIN
+            (
+                SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                FROM MWP005
+                WHERE 1=1
+                  AND WORKSHOP_CD = #{workshopCd}
+                GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+            ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+        ) A
+        WHERE 1=1
+          AND MAGAM_YN = 'N'
+    </select>
+
+    <select id="selectMaxCloseMonth" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="java.lang.String">
+        SELECT MAX(MAGAM_YYYYMM) AS MAGAM_YYYYMM
+        FROM (
+            SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN A.MAGAM_YYYYMM ELSE B.MAGAM_YYYYMM END AS MAGAM_YYYYMM
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YN AS VARCHAR) ELSE cast(B.MAGAM_YN AS VARCHAR) END AS MAGAM_YN
+            FROM (
+                SELECT WORKSHOP_CD, MAGAM_YYYYMM, 'N/A' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                FROM (
+                    SELECT WORKSHOP_CD, SUBSTR(IN_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MMA022
+                    WHERE 1=1
+                      AND WORKSHOP_CD = #{workshopCd}
+                    UNION ALL
+                    SELECT WORKSHOP_CD, SUBSTR(OUT_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MMA024
+                    WHERE 1=1
+                      AND WORKSHOP_CD = #{workshopCd}
+                ) A
+                GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+            ) A LEFT OUTER JOIN
+            (
+                SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                FROM MWP005
+                WHERE 1=1
+                  AND WORKSHOP_CD = #{workshopCd}
+                GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+            ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+        ) A
+        WHERE 1=1
+          AND MAGAM_YN = 'Y'
+    </select>
+
+    <select id="selectMaxCloseMonthAndDiffMonth" parameterType="org.rnt.material.vo.MonthCloseInVO" resultType="java.lang.Integer">
+        SELECT ((date_part('year',TO_DATE(REGEXP_REPLACE(#{magamYyyymm}, '[^0-9]', '', 'g'),'YYYYMMDD')) - date_part('year',TO_DATE(MAX(MAGAM_YYYYMM),'YYYYMM'))) * 12) + date_part('month',TO_DATE(REGEXP_REPLACE(#{magamYyyymm}, '[^0-9]', '', 'g'),'YYYYMMDD')) - date_part('month',TO_DATE(MAX(MAGAM_YYYYMM),'YYYYMM')) AS DIFF_MONTH
+        FROM (
+            SELECT CASE WHEN B.WORKSHOP_CD IS NULL THEN A.WORKSHOP_CD ELSE B.WORKSHOP_CD END AS WORKSHOP_CD
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN A.MAGAM_YYYYMM ELSE B.MAGAM_YYYYMM END AS MAGAM_YYYYMM
+                  ,CASE WHEN B.WORKSHOP_CD IS NULL THEN CAST(A.MAGAM_YN AS VARCHAR) ELSE cast(B.MAGAM_YN AS VARCHAR) END AS MAGAM_YN
+            FROM (
+                SELECT WORKSHOP_CD, MAGAM_YYYYMM, 'N/A' AS MAGAM_YMD, 'N' AS MAGAM_YN
+                FROM (
+                    SELECT WORKSHOP_CD, SUBSTR(IN_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MMA022
+                    WHERE 1=1
+                      AND WORKSHOP_CD = #{workshopCd}
+                    UNION ALL
+                    SELECT WORKSHOP_CD, SUBSTR(OUT_DT,1,6) AS MAGAM_YYYYMM
+                    FROM MMA024
+                    WHERE 1=1
+                      AND WORKSHOP_CD = #{workshopCd}
+                ) A
+                GROUP BY WORKSHOP_CD, MAGAM_YYYYMM
+            ) A LEFT OUTER JOIN
+            (
+                SELECT WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+                FROM MWP005
+                WHERE 1=1
+                  AND WORKSHOP_CD = #{workshopCd}
+                GROUP BY WORKSHOP_CD,MAGAM_YYYYMM, MAGAM_YMD, MAGAM_YN, MENDYN_SEQ
+            ) B ON A.WORKSHOP_CD = B.WORKSHOP_CD AND A.MAGAM_YYYYMM = B.MAGAM_YYYYMM
+        ) A
+        WHERE 1=1
+          AND MAGAM_YN = 'Y'
+    </select>
+    <select id="searchBaseQty" parameterType="org.rnt.material.vo.StockInVO" resultType="java.lang.String">
+       SELECT COALESCE(SUM(IN_CNT-OUT_CNT),0) AS BASE_QTY
+			FROM (
+				SELECT A.WORKSHOP_CD,
+				       A.MAT_CD,
+				       COALESCE(SUM(IN_CNT), 0) AS IN_CNT
+				       ,0 AS OUT_CNT
+				FROM MMA022 A
+				WHERE 1=1
+			        AND A.USE_YN = 'Y'
+			        AND IN_DT  <![CDATA[<]]>  #{sbDt}
+			        AND MAT_CD=   #{searchMatCd}
+			        AND WORKSHOP_CD= #{searchWorkshopCd}
+			        GROUP BY A.WORKSHOP_CD, A.MAT_CD
+		        UNION all
+		        SELECT WORKSHOP_CD,
+		              MAT_CD,
+		              0 AS IN_CNT
+		              , SUM(CASE WHEN MAT_OUT_TYPE_CD = 'GOUT' THEN OUT_CNT ELSE 0 END)-SUM(CASE WHEN MAT_OUT_TYPE_CD = 'GRNT' THEN OUT_CNT ELSE 0 END)
+			            +SUM(CASE WHEN MAT_OUT_TYPE_CD = 'DISUSE' THEN OUT_CNT ELSE 0 END)-SUM(CASE WHEN MAT_OUT_TYPE_CD = 'MODIFY' THEN OUT_CNT ELSE 0 END) AS OUT_CNT
+		        FROM MMA024
+		        WHERE 1=1
+		        AND USE_YN = 'Y'
+		        AND OUT_DT  <![CDATA[<]]>  #{sbDt}
+		        AND MAT_CD= #{searchMatCd}
+		        AND WORKSHOP_CD=#{searchWorkshopCd}
+		        GROUP BY WORKSHOP_CD, MAT_CD
+        ) A
+    </select>
+</mapper>

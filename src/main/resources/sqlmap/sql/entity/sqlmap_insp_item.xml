@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc033">
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.InspItemVO">
+        INSERT INTO MCC033
+        (
+             FACTORY_CD
+            ,INSP_ITEM_CD
+            ,INSP_ITEM_NM
+            ,INSP_TYPE_CD
+            ,INSP_ITEM_TYPE_CD
+            ,HIGH_VAL
+            ,LOW_VAL
+            ,INSP_DANWI_CD
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        ) VALUES (
+             #{factoryCd}
+            ,#{inspItemCd}
+            ,#{inspItemNm}
+            ,#{inspTypeCd}
+            ,#{inspItemTypeCd}
+            ,#{highVal}
+            ,#{lowVal}
+            ,#{inspDanwiCd}
+            ,'Y'
+            ,now()
+            ,#{writeId}
+            ,now()
+            ,#{updateId}
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.InspItemVO" resultType="org.rnt.com.entity.vo.InspItemVO">
+        SELECT
+             FACTORY_CD
+            ,INSP_TYPE_CD
+            ,INSP_ITEM_CD
+            ,INSP_ITEM_NM
+            ,INSP_ITEM_TYPE_CD
+            ,HIGH_VAL
+            ,LOW_VAL
+            ,INSP_DANWI_CD
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        FROM MCC033 A
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND INSP_TYPE_CD = #{inspTypeCd}
+          AND INSP_ITEM_CD = #{inspItemCd}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.InspItemVO">
+        UPDATE MCC033
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            <if test="inspItemNm != null">,INSP_ITEM_NM = #{inspItemNm}</if>
+            <if test="inspItemTypeCd != null">,INSP_ITEM_TYPE_CD = #{inspItemTypeCd}</if>
+            <if test="inspItemTypeCd == 'YN'">,HIGH_VAL =null,LOW_VAL=null</if>
+            <if test="highVal != null">,HIGH_VAL = #{highVal}</if>
+            <if test="lowVal != null">,LOW_VAL = #{lowVal}</if>
+            <if test="inspDanwiCd != null">,INSP_DANWI_CD = #{inspDanwiCd}</if>
+            <if test="useYn != null">,USE_YN = #{useYn}</if>
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND INSP_ITEM_CD = #{inspItemCd}
+    </update>
+
+    <delete id="delete" parameterType="org.rnt.com.entity.vo.InspItemVO">
+        DELETE FROM MCC033
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND INSP_TYPE_CD = #{inspTypeCd}
+          AND INSP_ITEM_CD = #{inspItemCd}
+    </delete>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.InspItemVO" resultType="org.rnt.com.entity.vo.InspItemVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                  <if test="sortCol != null">
+                  , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                  </if>
+                  <if test="sortCol == null">
+                  , ROW_NUMBER() OVER(ORDER BY UPDATE_DT DESC) AS RNUM
+                  </if>
+            FROM (
+                SELECT FACTORY_CD
+                     , INSP_ITEM_CD
+                     , INSP_ITEM_NM
+                     , COALESCE(NULLIF(#{searchInspTypeCd},''),A.INSP_TYPE_CD) AS INSP_TYPE_CD
+                     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'INSP_TYPE_CD' AND SCODE = A.INSP_TYPE_CD ) AS INSP_TYPE_NM
+                     , INSP_ITEM_TYPE_CD
+                     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'INSP_ITEM_TYPE_CD' AND SCODE = A.INSP_ITEM_TYPE_CD ) AS INSP_ITEM_TYPE_NM
+                     , HIGH_VAL
+                     , LOW_VAL
+                     , INSP_DANWI_CD
+                     , USE_YN
+                     , WRITE_DT
+                     , WRITE_ID
+                     , UPDATE_DT
+                     , UPDATE_ID
+                FROM MCC033 A
+                WHERE 1=1
+                  AND USE_YN = 'Y'
+                   <if test="searchItemCd != null and searchItemCd != '' and searchOperSeq != null and searchOperSeq != ''">
+                     AND A.INSP_ITEM_CD NOT IN (SELECT INSP_ITEM_CD FROM MCC050 WHERE BOM_SEQ IN (SELECT BOM_SEQ FROM MCC020 WHERE ITEM_CD = #{searchItemCd} AND OPER_SEQ = #{searchOperSeq} AND BOM_TYPE_CD = 'OP' ))
+                   </if>
+                  <if test="searchInspTypeCd != null and searchInspTypeCd != ''">
+                      AND A.INSP_TYPE_CD = #{searchInspTypeCd}
+                   </if>
+                  <if test="searchInspItemNm != null and searchInspItemNm != ''">
+                      AND A.INSP_ITEM_NM LIKE '%'||#{searchInspItemNm}||'%'
+                  </if>
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.InspItemVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM MCC033
+        WHERE 1=1
+          AND USE_YN = 'Y'
+          <if test="searchItemCd != null and searchItemCd != '' and searchOperSeq != null and searchOperSeq != ''">
+              AND INSP_ITEM_CD NOT IN (SELECT INSP_ITEM_CD FROM MCC050 WHERE BOM_SEQ IN (SELECT BOM_SEQ FROM MCC020 WHERE ITEM_CD = #{searchItemCd} AND OPER_SEQ = #{searchOperSeq} AND BOM_TYPE_CD = 'OP' ))
+          </if>
+          <if test="searchInspTypeCd != null and searchInspTypeCd != ''">
+              AND INSP_TYPE_CD = #{searchInspTypeCd}
+          </if>
+          <if test="searchInspItemNm != null and searchInspItemNm != ''">
+              AND INSP_ITEM_NM LIKE '%'||#{searchInspItemNm}||'%'
+          </if>
+    </select>
+</mapper>

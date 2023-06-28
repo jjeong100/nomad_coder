@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc051">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.BomInspSecVO">
+		INSERT INTO MCC051(
+				FACTORY_CD
+				, BOM_SEC_SEQ
+				, BOM_SEQ
+				, SEC_VAL
+				, SEC_NM
+				, USE_YN
+				, WRITE_DT
+				, WRITE_ID
+				, UPDATE_DT
+				, UPDATE_ID
+		) VALUES (
+				#{factoryCd}
+				, TABLE_SEQ_NEXTVAL('MCC051')
+				, #{bomSeq}
+				, #{secVal}
+				, #{secNm}
+				, 'Y'
+				, NOW()
+				, #{writeId}
+				, NOW()
+				, #{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.BomInspSecVO" resultType="org.rnt.com.entity.vo.BomInspSecVO">
+		SELECT A.FACTORY_CD
+			 , A.BOM_SEC_SEQ
+			 , A.BOM_SEQ
+			 , A.SEC_VAL
+			 , A.SEC_NM
+			 , A.USE_YN
+			 , A.WRITE_DT
+			 , A.WRITE_ID
+			 , A.UPDATE_DT
+			 , A.UPDATE_ID
+		  FROM MCC051 A
+		 WHERE A.FACTORY_CD		= #{factoryCd}
+		   AND A.BOM_SEC_SEQ	= #{bomSecSeq}
+		 ORDER BY A.FACTORY_CD
+			 , A.BOM_SEC_SEQ ASC
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.BomInspSecVO">
+		UPDATE MCC051
+		   SET UPDATE_DT = NOW()
+  		     , UPDATE_ID = #{updateId}
+  		     <if test="secVal != null and secVal != ''">,SEC_VAL = #{secVal}</if>
+  		     <if test="secNm != null and secNm != ''">,SEC_NM = #{secNm}</if>
+  		     <if test="useYn != null and useYn != ''">,USE_YN = #{useYn}</if>
+		 WHERE FACTORY_CD	= #{factoryCd}
+		   AND BOM_SEC_SEQ	= #{bomSecSeq}
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.BomInspSecVO">
+		DELETE FROM MCC051
+		 WHERE 1=1
+		   AND FACTORY_CD = #{factoryCd}
+		   AND BOM_SEC_SEQ	= #{bomSecSeq}
+	</update>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.BomInspSecVO" resultType="org.rnt.com.entity.vo.BomInspSecVO">
+		SELECT A.FACTORY_CD
+			 , A.BOM_SEC_SEQ
+			 , A.BOM_SEQ
+			 , A.SEC_VAL
+			 , A.SEC_NM
+			 , A.USE_YN
+			 , A.WRITE_DT
+			 , A.WRITE_ID
+			 , A.UPDATE_DT
+			 , A.UPDATE_ID
+		  FROM MCC051 A
+		 WHERE A.FACTORY_CD	= #{factoryCd}
+		   AND A.BOM_SEQ	= COALESCE(NULLIF(#{bomSeq}, ''), (SELECT BOM_SEQ FROM MCC020
+			   													WHERE BOM_TYPE_CD = 'OP'
+			   													  AND (BOM_VER, OPER_CD, ITEM_CD) = (SELECT BOM_VER, OPER_CD, ITEM_CD FROM MPO009 
+			   													  									  WHERE PROD_SEQ = #{searchProdSeq})))
+		 ORDER BY A.FACTORY_CD
+			 , A.BOM_SEC_SEQ ASC
+	</select>
+</mapper>

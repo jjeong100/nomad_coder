@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mqc001">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.FinishQmVO">
+		<selectKey keyProperty="mqcSeq" resultType="String" order="BEFORE">
+            SELECT TABLE_SEQ_NEXTVAL('MQC001')
+        </selectKey>
+		INSERT INTO MQC001
+		(
+			 FACTORY_CD
+			,MQC_SEQ
+			,PROD_QM_NO
+			,PROD_SEQ
+			,WORKACT_SEQ
+			,ITEM_CD
+			,CHECK_QTY
+			,ACTOK_QTY
+			,ACTBAD_QTY
+			,QM_STATE_CD
+			,QM_CHECKDT
+			,QM_CHECKID
+			,QM_REM
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,#{mqcSeq}
+			,EXT2_LOT_SEQ_NEXTVAL((SELECT PROD_WA_NO FROM MPO011 WHERE WORKACT_SEQ = #{workactSeq}))
+			,#{prodSeq}
+			,#{workactSeq}
+			,#{itemCd}
+			,#{checkQty}
+			,#{actokQty}
+			,#{actbadQty}
+			,#{qmStateCd}
+			,REGEXP_REPLACE(#{qmCheckdt}, '[^0-9]', '', 'g')
+			,#{qmCheckid}
+			,#{qmRem}
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.FinishQmVO" resultType="org.rnt.com.entity.vo.FinishQmVO">
+		SELECT A.FACTORY_CD
+			 , A.MQC_SEQ
+			 , A.PROD_QM_NO
+			 , PROD.PROD_SEQ
+			 , PROD.PROD_PO_NO
+			 , PROD.PO_CALLDT
+			 , A.WORKACT_SEQ
+			 , A.ITEM_CD
+			 , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+			 , PROD.PO_QTY
+			 , A.CHECK_QTY
+			 , A.ACTOK_QTY
+			 , A.ACTBAD_QTY
+			 , A.QM_STATE_CD
+			 , TO_CHAR(TO_DATE(A.QM_CHECKDT,'YYYYMMDD'),'YYYY/MM/DD') AS QM_CHECKDT
+			 , A.QM_CHECKID
+			 , (SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = A.QM_CHECKID) AS QM_CHECK_NM
+			 , A.QM_REM
+			 , A.USE_YN
+			 , A.WRITE_DT
+			 , A.WRITE_ID
+			 , A.UPDATE_DT
+			 , A.UPDATE_ID
+			 , (COALESCE(PROD.PO_QTY,0) - COALESCE((SELECT SUM(COALESCE(ACTOK_QTY,0)) FROM MQC001 WHERE PROD_SEQ = PROD.PROD_SEQ),0) + COALESCE(A.ACTOK_QTY,0)) AS REM_ACTOK_QTY
+			 , COALESCE((SELECT SUM(INOK_QTY) FROM MWP012 WHERE MQC_SEQ = A.MQC_SEQ AND ITEM_IN_TYPE_CD = 'IN' AND USE_YN = 'Y'), 0) AS INOK_QTY
+		  FROM MQC001 A
+		  	   LEFT OUTER JOIN MPO009 PROD ON PROD.PROD_SEQ = A.PROD_SEQ
+		 WHERE 1=1
+		   AND A.FACTORY_CD = #{factoryCd}
+		   AND A.MQC_SEQ = #{mqcSeq}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.FinishQmVO">
+		UPDATE MQC001
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="itemCd != null">,ITEM_CD = #{itemCd}</if>
+			<if test="checkQty != null">,CHECK_QTY = #{checkQty}</if>
+			<if test="actokQty != null">,ACTOK_QTY = #{actokQty}</if>
+			<if test="actbadQty != null">,ACTBAD_QTY = #{actbadQty}</if>
+			<if test="qmStateCd != null">,QM_STATE_CD = #{qmStateCd}</if>
+			<if test="qmCheckdt != null">,QM_CHECKDT = REGEXP_REPLACE(#{qmCheckdt}, '[^0-9]', '', 'g')</if>
+			<if test="qmCheckid != null">,QM_CHECKID = #{qmCheckid}</if>
+			<if test="qmRem != null">,QM_REM = #{qmRem}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND MQC_SEQ = #{mqcSeq}
+
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.FinishQmVO">
+		DELETE FROM MQC001
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND MQC_SEQ = #{mqcSeq}
+	</update>
+
+	<select id="searchJoinList" parameterType="org.rnt.com.entity.vo.FinishQmVO" resultType="org.rnt.com.entity.vo.FinishQmVO">
+		SELECT *
+		FROM (
+		    SELECT A.*
+		           <if test="sortCol != null">
+			       , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+				   </if>
+				   <if test="sortCol == null">
+				   , ROW_NUMBER() OVER(ORDER BY B.UPDATE_DT DESC) AS RNUM
+				   </if>
+		    FROM (
+			    SELECT PROD.FACTORY_CD
+                     , PROD.PROD_SEQ
+                     , PROD.PROD_PO_NO
+                     , WORKACT.WORKACT_SEQ
+                     , WORKACT.PROD_WA_NO
+                     , TO_CHAR(TO_DATE(PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD')    AS PO_CALLDT
+                     , PROD.ITEM_CD
+                     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = PROD.ITEM_CD) AS ITEM_NM
+                     , OPER.OPER_CD
+                     , (SELECT OPER_NM FROM MCC030 WHERE OPER_CD = OPER.OPER_CD) AS OPER_NM
+                     , WORKACT.ACTOK_QTY
+                     , WORKACT.ACTBAD_QTY
+                     , PROD.PROD_STDT
+                     , substring(WORKACT.WORKED_DT,1,8) AS WORKED_DT
+                     , (SELECT COALESCE(SUM(CHECK_QTY), 0) FROM MQC001 WHERE PROD_SEQ = PROD.PROD_SEQ AND WORKACT_SEQ = WORKACT.WORKACT_SEQ) AS USE_CHECK_QTY
+                     , WORKACT.ACTOK_QTY - (SELECT COALESCE(SUM(CHECK_QTY), 0) FROM MQC001 WHERE PROD_SEQ = PROD.PROD_SEQ AND WORKACT_SEQ = WORKACT.WORKACT_SEQ) AS QM_STOCK_QTY
+                FROM MPO009 PROD
+				     INNER JOIN MPO010 OPER ON OPER.PROD_SEQ = PROD.PROD_SEQ
+							    			AND OPER.LAST_OPER_YN = 'Y'
+				     INNER JOIN MPO011 WORKACT ON WORKACT.PROD_SEQ = PROD.PROD_SEQ
+											  AND WORKACT.OPER_CD = OPER.OPER_CD
+											  AND WORKACT.PROD_TYPE_CD = 'END'
+											  AND WORKACT.CONFIRM_YN='Y'
+				WHERE 1=1
+				  AND PROD.USE_YN = 'Y'
+				  <if test="searchProdPoNo != null and searchProdPoNo != ''">
+				  AND PROD.PROD_PO_NO LIKE '%'||#{searchProdPoNo}||'%'
+			      </if>
+			      <if test="searchToDate != null and searchToDate != '' and searchFromDate != null and searchFromDate != ''">
+		             AND WORKED_DT BETWEEN (#{searchFromDate}||'000000') AND (#{searchToDate}||'235959')
+		             </if>
+		    ) A
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+		</if>
+	</select>
+
+	<select id="searchJoinListTotCnt" parameterType="org.rnt.com.entity.vo.FinishQmVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MPO009 PROD
+		     INNER JOIN MPO010 OPER ON OPER.PROD_SEQ = PROD.PROD_SEQ
+					    			AND OPER.LAST_OPER_YN = 'Y'
+		     INNER JOIN MPO011 WORKACT ON WORKACT.PROD_SEQ = PROD.PROD_SEQ
+									  AND WORKACT.OPER_CD = OPER.OPER_CD
+									  AND WORKACT.PROD_TYPE_CD = 'END'
+									  AND WORKACT.CONFIRM_YN='Y'
+		WHERE 1=1
+		  AND PROD.USE_YN = 'Y'
+		  <if test="searchProdPoNo != null and searchProdPoNo != ''">
+		  AND PROD.PROD_PO_NO LIKE '%'||#{searchProdPoNo}||'%'
+		  </if>
+		   <if test="searchToDate != null and searchToDate != '' and searchFromDate != null and searchFromDate != ''">
+            AND WORKED_DT BETWEEN (#{searchFromDate}||'000000') AND (#{searchToDate}||'235959')
+            </if>
+	</select>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.FinishQmVO" resultType="org.rnt.com.entity.vo.FinishQmVO">
+		SELECT *
+		FROM (
+		    SELECT A.*
+		           <if test="sortCol != null">
+			       , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+				   </if>
+				   <if test="sortCol == null">
+				   , ROW_NUMBER() OVER(ORDER BY B.UPDATE_DT DESC) AS RNUM
+				   </if>
+		    FROM (
+			    SELECT QM.FACTORY_CD
+				     , QM.MQC_SEQ
+				     , QM.PROD_QM_NO
+				     , PROD.PROD_SEQ
+				     , PROD.PROD_PO_NO
+				     , TO_CHAR(TO_DATE(PROD.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+				     , QM.WORKACT_SEQ
+				     , QM.ITEM_CD
+				     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = QM.ITEM_CD) AS ITEM_NM
+				     , WORKACT.ACTOK_QTY AS PO_QTY
+				     , QM.CHECK_QTY
+				     , QM.ACTOK_QTY
+				     , QM.ACTBAD_QTY
+				     , QM.QM_STATE_CD
+				     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'QM_STATE_CD' AND SCODE = QM.QM_STATE_CD) AS QM_STATE_NM
+				     , TO_CHAR(TO_DATE(QM.QM_CHECKDT,'YYYYMMDD'),'YYYY/MM/DD') AS QM_CHECKDT
+				     , QM.QM_CHECKID
+				     , (SELECT LOGIN_NAME FROM MCC019 WHERE SABUN_ID = QM.QM_CHECKID) AS QM_CHECK_NM
+				     , QM.QM_REM
+				     , COALESCE((SELECT SUM(INOK_QTY) FROM MWP012 WHERE MQC_SEQ = QM.MQC_SEQ AND ITEM_IN_TYPE_CD = 'IN'), 0) AS USE_CHECK_QTY
+				     , COALESCE(QM.ACTOK_QTY,0) - COALESCE((SELECT SUM(INOK_QTY) FROM MWP012 WHERE MQC_SEQ = QM.MQC_SEQ AND ITEM_IN_TYPE_CD = 'IN'), 0) AS QM_STOCK_QTY
+				     , QM.USE_YN
+				     , QM.WRITE_DT
+				     , QM.WRITE_ID
+				     , QM.UPDATE_DT
+				     , QM.UPDATE_ID
+				FROM MQC001 QM
+					 INNER JOIN MPO009 PROD ON PROD.PROD_SEQ = QM.PROD_SEQ
+					 INNER JOIN MPO011 WORKACT ON WORKACT.PROD_SEQ = QM.PROD_SEQ
+								   			   AND WORKACT.WORKACT_SEQ = QM.WORKACT_SEQ
+					 INNER JOIN MPO010 OPER ON OPER.PROD_SEQ = QM.PROD_SEQ
+					 						AND OPER.LAST_OPER_YN = 'Y'
+				WHERE 1=1
+				  AND QM.USE_YN = 'Y'
+			      <if test="searchQmStateCd != null and searchQmStateCd != ''">
+				      AND QM.QM_STATE_CD = #{searchQmStateCd}
+			      </if>
+			      <if test="searchItemCd != null and searchItemCd != ''">
+				      AND QM.ITEM_CD = #{searchItemCd}
+			      </if>
+                  <if test="searchItemNm != null and searchItemNm != ''">
+                      AND QM.ITEM_CD IN (SELECT ITEM_CD FROM MCC016 WHERE ITEM_NM LIKE '%'||#{searchItemNm}||'%')
+                  </if>
+		          <if test="searchType != 'NIN' and searchType != 'IN'">
+		              <if test="searchFromQmCheckdt != null and searchFromQmCheckdt != '' and searchToQmCheckdt != null  and searchToQmCheckdt != ''">
+                          AND QM.QM_CHECKDT BETWEEN #{searchFromQmCheckdt} AND #{searchToQmCheckdt}
+                      </if>
+		          </if>
+			      <if test="searchType != null and searchType != ''">
+			          <if test="searchType == 'OK'">
+			              <![CDATA[ AND  QM.ACTBAD_QTY <= 0 ]]>
+			          </if>
+			          <if test="searchType == 'BAD'">
+			              <![CDATA[ AND  QM.ACTBAD_QTY > 0 ]]>
+			          </if>
+			          <if test="searchType == 'NIN'">
+			              <if test="searchFromQmCheckdt != null and searchFromQmCheckdt != '' and searchToQmCheckdt != null  and searchToQmCheckdt != ''">
+	                          AND QM.QM_CHECKDT BETWEEN #{searchFromQmCheckdt} AND #{searchToQmCheckdt}
+	                      </if>
+			          </if>
+			          <if test="searchType == 'IN'">
+                          <if test="searchFromQmCheckdt != null and searchFromQmCheckdt != '' and searchToQmCheckdt != null  and searchToQmCheckdt != ''">
+	                          AND QM.PROD_SEQ IN (SELECT PROD_SEQ FROM MPO009 WHERE PO_CALLDT BETWEEN #{searchFromQmCheckdt} AND #{searchToQmCheckdt})
+	                      </if>
+                      </if>
+			      </if>
+		    ) A
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+		</if>
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.FinishQmVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MQC001 QM
+			 INNER JOIN MPO009 PROD ON PROD.PROD_SEQ = QM.PROD_SEQ
+			 INNER JOIN MPO011 WORKACT ON WORKACT.PROD_SEQ = QM.PROD_SEQ
+						   			   AND WORKACT.WORKACT_SEQ = QM.WORKACT_SEQ
+			 INNER JOIN MPO010 OPER ON OPER.PROD_SEQ = QM.PROD_SEQ
+			 						AND OPER.LAST_OPER_YN = 'Y'
+		WHERE 1=1
+		  AND QM.USE_YN = 'Y'
+		  <if test="searchQmStateCd != null and searchQmStateCd != ''">
+		  	AND QM.QM_STATE_CD = #{searchQmStateCd}
+		  </if>
+		  <if test="searchItemCd != null and searchItemCd != ''">
+              AND QM.ITEM_CD = #{searchItemCd}
+          </if>
+          <if test="searchItemNm != null and searchItemNm != ''">
+              AND QM.ITEM_CD IN (SELECT ITEM_CD FROM MCC016 WHERE ITEM_NM LIKE '%'||#{searchItemNm}||'%')
+          </if>
+          <if test="searchType != 'NIN' and searchType != 'IN'">
+              <if test="searchFromQmCheckdt != null and searchFromQmCheckdt != '' and searchToQmCheckdt != null  and searchToQmCheckdt != ''">
+                  AND QM.QM_CHECKDT BETWEEN #{searchFromQmCheckdt} AND #{searchToQmCheckdt}
+              </if>
+          </if>
+          <if test="searchType != null and searchType != ''">
+              <if test="searchType == 'OK'">
+                  <![CDATA[ AND  QM.ACTBAD_QTY <= 0 ]]>
+              </if>
+              <if test="searchType == 'BAD'">
+                  <![CDATA[ AND  QM.ACTBAD_QTY > 0 ]]>
+              </if>
+              <if test="searchType == 'NIN'">
+                  <if test="searchFromQmCheckdt != null and searchFromQmCheckdt != '' and searchToQmCheckdt != null  and searchToQmCheckdt != ''">
+                      AND QM.QM_CHECKDT BETWEEN #{searchFromQmCheckdt} AND #{searchToQmCheckdt}
+                  </if>
+              </if>
+              <if test="searchType == 'IN'">
+                  <if test="searchFromQmCheckdt != null and searchFromQmCheckdt != '' and searchToQmCheckdt != null  and searchToQmCheckdt != ''">
+                      AND QM.PROD_SEQ IN (SELECT PROD_SEQ FROM MPO009 WHERE PO_CALLDT BETWEEN #{searchFromQmCheckdt} AND #{searchToQmCheckdt})
+                  </if>
+              </if>
+          </if>
+	</select>
+
+	<select id="getFinishQmListData" parameterType="org.rnt.com.entity.vo.FinishQmVO" resultType="org.rnt.com.entity.vo.FinishQmVO" >
+		SELECT QM.MQC_SEQ
+			 , QM.PROD_QM_NO
+			 , PROD.PROD_SEQ
+			 , PROD.PROD_PO_NO
+			 , PROD.PO_CALLDT
+			 , PROD.ITEM_CD
+			 , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = PROD.ITEM_CD) AS ITEM_NM
+			 , PROD.OPER_CD
+			 , PROD.OPER_SEQ
+			 , WORKACT.WORKACT_SEQ
+			 , QM.QM_STATE_CD
+			 , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'QM_STATE_CD' AND SCODE = QM.QM_STATE_CD) AS QM_STATE_NM
+			 , QM.QM_REM
+			 , PROD.PO_QTY
+			 , TO_CHAR(TO_DATE(QM.QM_CHECKDT,'YYYYMMDD'),'YYYY/MM/DD')  AS QM_CHECKDT
+			 , QM.CHECK_QTY
+			 , QM.ACTOK_QTY
+			 , QM.ACTBAD_QTY
+			 , (SELECT COALESCE(SUM(CHECK_QTY), 0) FROM MQC001 WHERE PROD_SEQ = PROD.PROD_SEQ) AS USE_CHECK_QTY
+		  FROM MPO009 PROD
+		       INNER JOIN MPO011 WORKACT ON WORKACT.PROD_SEQ = PROD.PROD_SEQ
+		       INNER JOIN MQC001 QM ON QM.FACTORY_CD = WORKACT.FACTORY_CD
+								  AND QM.PROD_SEQ = WORKACT.PROD_SEQ
+								  AND QM.WORKACT_SEQ = WORKACT.WORKACT_SEQ
+		 WHERE 1=1
+		 <if test="prodSeq != null and prodSeq != ''">
+		 	AND QM.PROD_SEQ = #{prodSeq}
+		 </if>
+		 <if test="workactSeq != null and workactSeq != ''">
+		 	AND WORKACT.WORKACT_SEQ = #{workactSeq}
+		 </if>
+	</select>
+
+	<select id="getFinishQmListDataTotCnt" parameterType="org.rnt.com.entity.vo.FinishQmVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		  FROM MPO009 PROD
+		       INNER JOIN MPO011 WORKACT ON WORKACT.PROD_SEQ = PROD.PROD_SEQ
+		       INNER JOIN MQC001 QM ON QM.FACTORY_CD = WORKACT.FACTORY_CD
+								  AND QM.PROD_SEQ = WORKACT.PROD_SEQ
+								  AND QM.WORKACT_SEQ = WORKACT.WORKACT_SEQ
+		 WHERE 1=1
+		 <if test="prodSeq != null and prodSeq != ''">
+		 	AND QM.PROD_SEQ = #{prodSeq}
+		 </if>
+		 <if test="workactSeq != null and workactSeq != ''">
+		 	AND WORKACT.WORKACT_SEQ = #{workactSeq}
+		 </if>
+	</select>
+</mapper>

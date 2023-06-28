@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc035">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.OperAuthVO">
+		INSERT INTO MCC035
+		(
+			 FACTORY_CD
+			,OPER_AUTH_CD
+			,OPER_AUTH_NM
+			,SORT_ORD
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,#{operAuthCd}
+			,#{operAuthNm}
+			,(CASE WHEN #{sortOrd} = 0 THEN (SELECT COALESCE(MAX(SORT_ORD))+1 FROM MCC035) ELSE #{sortOrd} END)
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.OperAuthVO" resultType="org.rnt.com.entity.vo.OperAuthVO">
+		SELECT
+			 FACTORY_CD
+			,OPER_AUTH_CD
+			,OPER_AUTH_NM
+			,SORT_ORD
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		FROM MCC035 A
+		WHERE 1=1 
+		  AND FACTORY_CD = #{factoryCd}
+		  AND OPER_AUTH_CD = #{operAuthCd}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.OperAuthVO">
+		UPDATE MCC035
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="operAuthCd != null">,OPER_AUTH_CD = #{operAuthCd}</if>
+			<if test="operAuthNm != null">,OPER_AUTH_NM = #{operAuthNm}</if>
+			<if test="sortOrd != null">,SORT_ORD = #{sortOrd}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND OPER_AUTH_CD = #{operAuthCd}
+	
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.OperAuthVO">
+		UPDATE MCC035
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+		    ,USE_YN = 'N'
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND OPER_AUTH_CD = #{operAuthCd}
+	</update>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.OperAuthVO" resultType="org.rnt.com.entity.vo.OperAuthVO">
+		SELECT *
+		FROM (
+			SELECT FACTORY_CD
+				 , OPER_AUTH_CD
+				 , OPER_AUTH_NM
+				 , SORT_ORD
+			     , USE_YN
+			     , WRITE_DT
+			     , WRITE_ID
+			     , UPDATE_DT
+			     , UPDATE_ID
+			     <if test="sortCol != null">
+			     , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			     </if>
+			     <if test="sortCol == null">
+			     , ROW_NUMBER() OVER(ORDER BY SORT_ORD ASC) AS RNUM
+			     </if>
+			FROM MCC035 A
+			WHERE 1=1
+			  AND USE_YN = 'Y'
+			  <if test="searchOperAuthNm != null and searchOperAuthNm != ''">
+                  AND OPER_AUTH_NM LIKE '%'||#{searchOperAuthNm}||'%'
+              </if>
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+		</if>
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.OperAuthVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MCC035
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+		  <if test="searchOperAuthNm != null and searchOperAuthNm != ''">
+              AND OPER_AUTH_NM LIKE '%'||#{searchOperAuthNm}||'%'
+          </if>
+	</select>
+	
+	<select id="selectWorkerCnt" parameterType="org.rnt.com.entity.vo.OperAuthVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MCC019
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+		  AND OPER_AUTH_CD = #{operAuthCd}
+	</select>
+</mapper>

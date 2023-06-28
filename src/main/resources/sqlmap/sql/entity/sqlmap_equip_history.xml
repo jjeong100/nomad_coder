@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc028">
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.EquipVO">
+        INSERT INTO MCC026(
+                FACTORY_CD
+                , EQUIP_SEQ
+                , EQUIP_HIS_SEQ
+                , EQUIP_CD
+                , EQUIP_DT
+                , EQUIP_CONT
+                , USE_YN
+                , WRITE_DT
+                , WRITE_ID
+                , UPDATE_DT
+                , UPDATE_ID
+        ) VALUES (
+                #{factoryCd}
+                , #{equipSeq}
+                , TABLE_SEQ_NEXTVAL('MCC026')
+                , #{equipCd}
+                , REGEXP_REPLACE(#{equipDt}, '\D', '', 'g')
+                , #{equipCont}
+                , 'Y'
+                , NOW()
+                , #{writeId}
+                , NOW()
+                , #{updateId}
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.EquipVO" resultType="org.rnt.com.entity.vo.EquipVO">
+        SELECT A.FACTORY_CD
+             , A.EQUIP_SEQ
+             , A.EQUIP_HIS_SEQ
+             , A.EQUIP_CD
+             , B.EQUIP_NM
+             , TO_CHAR(TO_DATE(A.EQUIP_DT,'YYYYMMDD'),'YYYY/MM/DD') AS EQUIP_DT
+             , A.EQUIP_CONT
+             , A.USE_YN
+             , A.WRITE_DT
+             , A.WRITE_ID
+             , A.UPDATE_DT
+             , A.UPDATE_ID
+          FROM MCC026 A
+         INNER JOIN MCC026 B 
+         ON(B.EQUIP_CD         = A.EQUIP_CD)
+         WHERE A.FACTORY_CD    = #{factoryCd}
+           AND A.EQUIP_SEQ     = #{equipSeq}
+           AND A.EQUIP_HIS_SEQ = #{equipHisSeq}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.EquipVO">
+        UPDATE MCC026
+           SET UPDATE_DT = NOW()
+             , UPDATE_ID = #{updateId}
+             <if test="equipDt != null and equipDt != ''">,EQUIP_DT = REGEXP_REPLACE(#{equipDt}, '\D', '', 'g')</if>
+             <if test="equipCont != null and equipCont != ''">,EQUIP_CONT = #{equipCont}</if>
+             <if test="useYn != null">,USE_YN = #{useYn}</if>
+         WHERE FACTORY_CD    = #{factoryCd}
+           AND EQUIP_SEQ    = #{equipSeq}
+           AND EQUIP_HIS_SEQ    = #{equipHisSeq}
+    </update>
+
+    <update id="delete" parameterType="org.rnt.com.entity.vo.EquipVO">
+        UPDATE MCC026
+           SET UPDATE_DT = NOW()
+             , UPDATE_ID = #{updateId}
+             , USE_YN = 'N'
+         WHERE FACTORY_CD    = #{factoryCd}
+           AND EQUIP_SEQ    = #{equipSeq}
+           AND EQUIP_HIS_SEQ    = #{equipHisSeq}
+    </update>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.EquipVO" resultType="org.rnt.com.entity.vo.EquipVO">
+        SELECT *
+          FROM (
+            SELECT A.FACTORY_CD
+                 , A.EQUIP_SEQ
+                 , A.EQUIP_HIS_SEQ
+                 , A.EQUIP_CD
+                 , B.EQUIP_NM
+                 , TO_CHAR(TO_DATE(A.EQUIP_DT,'YYYYMMDD'),'YYYY/MM/DD') AS EQUIP_DT
+                 , A.EQUIP_CONT
+                 , A.USE_YN
+                 , A.WRITE_DT
+                 , A.WRITE_ID
+                 , A.UPDATE_DT
+                 , A.UPDATE_ID
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY A.WRITE_DT DESC) AS RNUM
+                 </if>
+              FROM MCC026 A
+                     INNER JOIN MCC026 B ON B.EQUIP_CD = A.EQUIP_CD
+             WHERE 1=1
+               AND A.USE_YN = 'Y'
+               <if test="searchEquipNm != null and searchEquipNm != ''">
+               AND A.EQUIP_NM LIKE '%'||#{searchEquipNm}||'%'
+               </if>
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.EquipVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+          FROM MCC026 A
+         WHERE 1=1
+           AND A.USE_YN = 'Y'
+           <if test="searchEquipNm != null and searchEquipNm != ''">
+           AND A.EQUIP_NM LIKE '%'||#{searchEquipNm}||'%'
+           </if>
+    </select>
+</mapper>

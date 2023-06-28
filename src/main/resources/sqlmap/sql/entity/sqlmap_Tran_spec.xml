@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcp001">
+    <select id="selectCompany" parameterType="org.rnt.com.entity.vo.TranSpecVO" resultType="org.rnt.com.entity.vo.TranSpecVO">
+        SELECT A.FACTORY_CD
+            , A.BUSIN_NO
+            , A.MUTUAL_NM
+            , A.CEO_NM
+            , A.ADDR
+            , A.BUSIN_COND
+            , A.PARTS_CATEGORY
+            , A.TEL_NO
+            , A.FAX_NO
+            , A.USE_YN
+            , A.WRITE_DT
+            , A.WRITE_ID
+            , A.UPDATE_DT
+            , A.UPDATE_ID
+            , B.CUST_NM
+            , B.ADDR1 || ' ' || B.ADDR2 AS CUST_ADDR
+            , B.PRESIDEN_NM AS CUST_CEO_NM
+            , REGEXP_REPLACE(REGEXP_REPLACE(B.BUSINESS_NO, '[^0-9]', '', 'g'), '(.{4})(.+)(.{4})', '\1-\2-\3') AS  CUST_BUSIN_NO
+            , A.BUSIN_COND AS CUST_BUSIN_COND
+            , A.PARTS_CATEGORY AS CUST_PARTS_CATEGORY
+        FROM MCP001 A
+        LEFT OUTER JOIN MCC025 B
+        ON (A.FACTORY_CD = B.FACTORY_CD
+           AND B.CUST_CD = #{custCd}
+           AND B.USE_YN = 'Y'
+        )
+        WHERE 1=1 
+          AND A.USE_YN = 'Y'
+          AND A.FACTORY_CD = #{factoryCd}
+          AND A.BUSIN_NO   = #{businNo}
+    </select>
+</mapper>

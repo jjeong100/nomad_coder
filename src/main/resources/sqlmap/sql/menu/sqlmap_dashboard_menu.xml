@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dashboardMenu">
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 대시보드 일별 생산 집계                                                                                                                                                                                                                                                           -->
+    <!-- ============================================================================================================================= -->
+    <select id="dashboardEquipSummary" resultType="org.rnt.dashboard.vo.DashboardEquipSumVO">
+        SELECT TO_CHAR(NOW(),'YYYY/MM/DD')  AS NOW_DAY
+              , TO_CHAR(NOW(),'HH24:MI:SS') AS NOW_TIME
+              , SUM(PO_QTY)                 AS TOT_PO_QTY     -- 지시수량
+              , SUM(ACTOK_QTY)              AS TOT_ACTOK_QTY  -- 실적수량
+              , SUM(ACTBAD_QTY)             AS TOT_ACTBAD_QTY -- 불량수량
+              , CASE WHEN SUM(PO_QTY) = 0    THEN 0 ELSE SUM(ACTOK_QTY)*100/SUM(PO_QTY)     END AS ACTOK_RATE         -- 실적달성율
+              , CASE WHEN SUM(ACTOK_QTY) = 0 THEN 0 ELSE SUM(ACTBAD_QTY)*100/SUM(ACTOK_QTY) END AS ACTBAD_RATE -- 불량율
+        FROM (
+            SELECT COALESCE(B.PO_QTY,0)      AS PO_QTY
+                  , COALESCE(B.ACTOK_QTY,0)  AS ACTOK_QTY
+                  , COALESCE(B.ACTBAD_QTY,0) AS ACTBAD_QTY
+            FROM MPO009 A 
+            LEFT OUTER JOIN MPO011 B 
+            ON ( A.PROD_SEQ = B.PROD_SEQ AND A.PO_CALLDT BETWEEN TO_CHAR(now(),'YYYYMMDD') AND TO_CHAR(now(),'YYYYMMDD'))
+            
+            UNION ALL
+            
+            SELECT CASE WHEN (SELECT COUNT(*) 
+                                FROM MPO011
+                               WHERE PROD_SEQ = A.PROD_SEQ) > 0 THEN 0 
+                    ELSE COALESCE(PO_QTY,0) END AS PO_QTY
+                  , 0 AS ACTOK_QTY
+                  , 0 AS ACTBAD_QTY
+            FROM MPO009 A
+            WHERE PO_CALLDT BETWEEN TO_CHAR(now(),'YYYYMMDD') AND TO_CHAR(now(),'YYYYMMDD')
+            
+            UNION ALL
+            
+            SELECT 0 AS PO_QTY, 0 AS ACTOK_QTY, 0 AS ACTBAD_QTY
+        ) A
+    </select>
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 자동화 일별 생산 집계                                                                                                                                                                                                                                                           -->
+    <!-- ============================================================================================================================= -->
+    <select id="dashboardAutoEquipSummary" resultType="org.rnt.dashboard.vo.DashboardEquipSumVO">
+         SELECT TO_CHAR(NOW(),'YYYY/MM/DD') AS NOW_DAY
+              , TO_CHAR(NOW(),'HH24:MI:SS') AS NOW_TIME
+              , SUM(PO_QTY)     AS TOT_PO_QTY     -- 지시수량
+              , SUM(ACTOK_QTY)  AS TOT_ACTOK_QTY  -- 실적수량
+              , SUM(ACTBAD_QTY) AS TOT_ACTBAD_QTY -- 불량수량
+              , CASE WHEN SUM(PO_QTY) = 0 THEN 0 ELSE SUM(ACTOK_QTY)*100/SUM(PO_QTY) END AS ACTOK_RATE         -- 실적달성율
+              , CASE WHEN SUM(ACTOK_QTY) = 0 THEN 0 ELSE SUM(ACTBAD_QTY)*100/SUM(ACTOK_QTY) END AS ACTBAD_RATE -- 불량율
+        FROM (
+            SELECT COALESCE(B.PO_QTY,0)  AS PO_QTY
+                  ,COALESCE(A.ACTOK_QTY,0) AS ACTOK_QTY
+                  ,COALESCE(A.ACTBAD_QTY,0) AS ACTBAD_QTY
+           FROM MCC907 A 
+        
+            WHERE A.EQUIP_CD IN ('LINE01','LINE02')
+              AND TO_CHAR(A.UPDATE_DT,'YYYYMMDD') BETWEEN TO_CHAR(now(),'YYYYMMDD') AND TO_CHAR(now(),'YYYYMMDD')
+
+            UNION ALL
+
+            SELECT CASE WHEN (SELECT COUNT(*) FROM MPO011 WHERE PROD_SEQ = A.PROD_SEQ) > 0 THEN 0 ELSE COALESCE(PO_QTY,0) END AS PO_QTY
+                  ,0 AS ACTOK_QTY
+                  ,0 AS ACTBAD_QTY      
+            FROM MPO009 A
+            WHERE PO_CALLDT BETWEEN TO_CHAR(now(),'YYYYMMDD') 
+              AND TO_CHAR(now(),'YYYYMMDD')
+              AND PROD_SEQ IN (SELECT PROD_SEQ FROM MPO011 WHERE EQUIP_CD IN ('LINE01','LINE02'))
+
+            UNION ALL
+
+            SELECT 0 AS PO_QTY, 0 AS ACTOK_QTY, 0 AS ACTBAD_QTY
+        ) A
+    </select>
+    
+     <select id="dashboardProductionChart" parameterType="org.rnt.dashboard.vo.DashboardProductionChartVO" resultType="org.rnt.dashboard.vo.DashboardProductionChartVO">
+     SELECT *
+     FROM
+     (SELECT *
+           , ROW_NUMBER() OVER(ORDER BY A.PLC_YN DESC, A.EQUIP_CD ASC) AS RNUM
+         FROM (
+            SELECT A.EQUIP_CD
+                 , A.EQUIP_NM
+                 , SUM(COALESCE(B.ACTOK_QTY,0))  AS ACTOK_QTY
+                 , SUM(COALESCE(B.ACTBAD_QTY,0)) AS ACTBAD_QTY
+                 , A.PLC_YN
+              FROM MCC026 A 
+              LEFT OUTER JOIN (SELECT EQUIP_CD
+                                     , COALESCE(ACTOK_QTY,0) AS ACTOK_QTY
+                                     , COALESCE(ACTBAD_QTY,0) AS ACTBAD_QTY 
+                                  FROM MPO011 
+                                 WHERE WORK_DT BETWEEN TO_CHAR(now(),'YYYYMMDD') 
+                                   AND TO_CHAR(now(),'YYYYMMDD')) B 
+              ON (A.EQUIP_CD = B.EQUIP_CD)
+              LEFT OUTER JOIN (SELECT PLC_CD
+                        , EQUIP_CD
+                        , MAX(ACTOK_QTY) - MIN(ACTOK_QTY) AS WORK_CNT
+                     FROM MCC908
+                    WHERE 1=1
+                      AND TO_CHAR(WRITE_DT, 'YYYYMMDD') = TO_CHAR(NOW(), 'YYYYMMDD')
+                    GROUP BY PLC_CD, EQUIP_CD ) C 
+             ON (C.EQUIP_CD = A.EQUIP_CD)
+             GROUP BY A.EQUIP_CD, A.EQUIP_NM, A.PLC_YN
+         ) A
+        -- 자동화 라인은 디폴트 출력 다른 설비는 값이 있을때 출력
+          WHERE (A.ACTOK_QTY > 0 
+              OR A.ACTBAD_QTY > 0
+              OR A.EQUIP_CD IN ('LINE01','LINE02'))
+        ) B
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="dashboardAutoEquipChart" parameterType="org.rnt.dashboard.vo.DashboardProductionChartVO" resultType="org.rnt.dashboard.vo.DashboardProductionChartVO">
+       SELECT *
+         FROM
+         (SELECT *
+               , ROW_NUMBER() OVER(ORDER BY A.EQUIP_CD ASC) AS RNUM
+             FROM (
+               SELECT EQUIP_CD
+                     , (SELECT EQUIP_NM FROM MCC026 WHERE EQUIP_CD = A.EQUIP_CD LIMIT 1) AS EQUIP_NM
+                     , ACTOK_QTY
+                     , ACTBAD_QTY
+                     , PROD_SEQ
+                FROM MCC907 A
+                ) A
+            ) B
+    </select>
+    
+    <select id="dashboardProductionChartTotCnt" parameterType="org.rnt.com.entity.vo.ProductionOrderVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+          FROM (SELECT A.EQUIP_CD
+                 , A.EQUIP_NM
+                 , SUM(COALESCE(B.ACTOK_QTY,0))  AS ACTOK_QTY
+                 , SUM(COALESCE(B.ACTBAD_QTY,0)) AS ACTBAD_QTY
+              FROM MCC026 A 
+              LEFT OUTER JOIN (SELECT EQUIP_CD
+                                     , COALESCE(ACTOK_QTY,0) AS ACTOK_QTY
+                                     , COALESCE(ACTBAD_QTY,0) AS ACTBAD_QTY 
+                                  FROM MPO011 
+                                 WHERE WORK_DT BETWEEN TO_CHAR(now(),'YYYYMMDD') 
+                                   AND TO_CHAR(now(),'YYYYMMDD')) B 
+              ON (A.EQUIP_CD = B.EQUIP_CD)
+              LEFT OUTER JOIN (SELECT PLC_CD
+                        , EQUIP_CD
+                        , MAX(ACTOK_QTY) - MIN(ACTOK_QTY) AS WORK_CNT
+                     FROM MCC908
+                    WHERE 1=1
+                      AND TO_CHAR(WRITE_DT, 'YYYYMMDD') = TO_CHAR(NOW(), 'YYYYMMDD')
+                    GROUP BY PLC_CD, EQUIP_CD ) C 
+             ON (C.EQUIP_CD = A.EQUIP_CD)
+             GROUP BY A.EQUIP_CD, A.EQUIP_NM
+         ) A
+        -- 자동화 라인은 디폴트 출력 다른 설비는 값이 있을때 출력
+          WHERE (A.ACTOK_QTY > 0 
+              OR A.ACTBAD_QTY > 0
+              OR A.EQUIP_CD IN ('LINE01','LINE02'))
+    </select>
+    
+    <select id="dashboardProductionChart_backup" resultType="org.rnt.dashboard.vo.DashboardProductionChartVO">
+        SELECT A.EQUIP_CD
+             , A.EQUIP_NM
+             , CASE 
+                     WHEN A.EQUIP_CD = 'EQUIP99' THEN (SELECT MAX(WORK_CNT) - MIN(WORK_CNT) FROM MCC908 WHERE PLC_CD = '01' AND TO_CHAR(WRITE_DT, 'YYYYMMDD') = TO_CHAR(NOW(), 'YYYYMMDD'))
+                     WHEN A.EQUIP_CD IN ('EQUIP09', 'EQUIP10') THEN MAX(WORK_CNT)
+                     ELSE SUM(COALESCE(B.ACTOK_QTY,0)) 
+               END AS ACTOK_QTY
+             , SUM(COALESCE(B.ACTBAD_QTY,0)) AS ACTBAD_QTY
+          FROM MCC024 A 
+               LEFT OUTER JOIN (SELECT EQUIP_CD
+                                        , COALESCE(ACTOK_QTY,0) AS ACTOK_QTY
+                                        , COALESCE(ACTBAD_QTY,0) AS ACTBAD_QTY 
+                                   FROM MPO011 
+                                  WHERE WORK_DT BETWEEN TO_CHAR(now(),'YYYYMMDD') 
+                                    AND TO_CHAR(now(),'YYYYMMDD')) B ON A.EQUIP_CD = B.EQUIP_CD
+               LEFT OUTER JOIN (SELECT PLC_CD
+                                     , EQUIP_CD
+                                     , MAX(WORK_CNT) - MIN(WORK_CNT) AS WORK_CNT
+                                  FROM MCC908
+                                 WHERE 1=1
+                                   AND TO_CHAR(WRITE_DT, 'YYYYMMDD') = TO_CHAR(NOW(), 'YYYYMMDD')
+                                   --AND PLC_CD IN ('4', '5')
+                                 GROUP BY PLC_CD, EQUIP_CD ) C ON C.EQUIP_CD = A.EQUIP_CD
+        GROUP BY A.EQUIP_CD, A.EQUIP_NM
+        ORDER BY A.EQUIP_CD ASC
+    </select>
+    
+    <select id="getDashboardProductionActWaitList" resultType="org.rnt.com.entity.vo.ProductionActVO">
+        SELECT PROD.PROD_SEQ
+             , PROD.PROD_PO_NO
+             , (SELECT ITEM_NM FROM MCC015 WHERE ITEM_CD = PROD.ITEM_CD) AS ITEM_NM
+             , TO_CHAR(TO_DATE(PROD.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+             , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'PROD_TYPE_CD' AND SCODE = PROD.PROD_TYPE_CD ) AS PROD_TYPE_NM
+             , PROD.PO_QTY
+          FROM MPO009 PROD
+         WHERE 1=1
+           AND PROD.USE_YN = 'Y'
+           AND PROD.PROD_TYPE_CD = 'WAT'
+         ORDER BY PROD.PO_CALLDT ASC
+    </select>
+    
+    <select id="getDashboardProductionActIngList" resultType="org.rnt.com.entity.vo.ProductionActVO">
+        SELECT PROD.PROD_SEQ
+             , PROD.PROD_PO_NO
+             , (SELECT ITEM_NM FROM MCC015 WHERE ITEM_CD = PROD.ITEM_CD) AS ITEM_NM
+             , TO_CHAR(TO_DATE(PROD.PO_CALLDT,'YYYYMMDD'),'YYYY/MM/DD') AS PO_CALLDT
+             , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'PROD_TYPE_CD' AND SCODE = PROD.PROD_TYPE_CD ) AS PROD_TYPE_NM
+             , PROD.PO_QTY
+             , COALESCE(ACT.EQUIP_QTY, 0) AS EQUIP_QTY
+             , COALESCE(ACT.ACTOK_QTY, 0) AS ACTOK_QTY
+             , COALESCE(ACT.ACTBAD_QTY, 0) AS ACTBAD_QTY
+          FROM MPO009 PROD
+               LEFT OUTER JOIN (SELECT ACT.PROD_SEQ
+                                     , COALESCE(SUM(ACT.EQUIP_QTY), 0) AS EQUIP_QTY
+                                     , COALESCE(SUM(ACT.ACTOK_QTY), 0) AS ACTOK_QTY
+                                     , COALESCE(SUM(ACT.ACTBAD_QTY), 0) AS ACTBAD_QTY
+                                  FROM MPO011 ACT
+                                 GROUP BY ACT.PROD_SEQ) ACT ON ACT.PROD_SEQ = PROD.PROD_SEQ
+         WHERE 1=1
+           AND PROD.USE_YN = 'Y'
+           AND PROD.PROD_TYPE_CD = 'ING'
+         ORDER BY PROD.PO_CALLDT ASC
+    </select>
+    
+</mapper>

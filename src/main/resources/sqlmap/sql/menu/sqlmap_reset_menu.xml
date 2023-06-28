@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="resetMenu">
+     <insert id="insert" parameterType="org.rnt.com.entity.vo.ResetVO">
+       INSERT INTO DELTBL
+            (
+                FACTORY_CD
+                , TBL_SEQ
+                , SUBJECT
+                , CONTENT
+                , TBL_LIST
+                , ORDER_NUM
+                , WRITE_DT
+                , WRITE_ID
+                , UPDATE_DT
+                , UPDATE_ID
+            ) VALUES (
+                #{factoryCd}
+                , TABLE_SEQ_NEXTVAL('DELTBL')
+                , #{subject}
+                , #{content}
+                , #{tblList}
+                , #{orderNum}
+                , 'Y'
+                , now()
+                , #{writeId}
+                , now()
+                , #{updateId}
+            )
+     </insert>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.ResetVO" resultType="org.rnt.com.entity.vo.ResetVO">
+        SELECT *
+        FROM (
+            SELECT *
+             <if test="sortCol != null">
+                     , ROW_NUMBER() OVER(ORDER BY ORDER_NUM ASC NULLS LAST) AS RNUM
+                     </if>
+                     <if test="sortCol == null">
+                     , ROW_NUMBER() OVER(ORDER BY ORDER_NUM ASC) AS RNUM
+                     </if>
+            FROM (
+                  SELECT FACTORY_CD
+                        , TBL_SEQ
+                        , SUBJECT
+                        , CONTENT
+                        , TBL_LIST
+                        , WRITE_DT
+                        , WRITE_ID
+                        , UPDATE_DT
+                        , UPDATE_ID
+                    FROM DELTBL
+
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+   <select id="selectTable" parameterType="org.rnt.com.entity.vo.ResetVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS CNT
+        FROM INFORMATION_SCHEMA.TABLES
+        WHERE TABLE_NAME = LOWER(#{tableName})
+    </select>
+
+<!-- 자재 클린 -->
+    <delete id="deleteMMA022" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MMA022 -- 자재 입고
+    </delete>
+    <delete id="deleteMMA024" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MMA024 -- 자재 출고
+    </delete>
+    <delete id="deleteMWP001" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP001 -- 기초 재고
+    </delete>
+    <delete id="deleteMWP005" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP005 -- 마감
+    </delete>
+    <delete id="deleteMMA025" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MMA025 -- 마감
+    </delete>
+    <delete id="deleteMMA026" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MMA026 -- 마감
+    </delete>
+
+
+<!-- BOM 클린 -->
+    <delete id="deleteMCC013" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MCC013 -- bom version 채번
+    </delete>
+    <delete id="deleteMCC020" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MCC020 -- bom
+    </delete>
+    <delete id="deleteMCC050" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MCC050 -- bom 검사항목
+    </delete>
+    <delete id="deleteMCC021" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MCC021 -- bom history
+    </delete>
+    <delete id="deleteMCC022" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MCC022 -- bom backup
+    </delete>
+
+    <update id="updateMCC015" parameterType="org.rnt.com.entity.vo.ResetVO">
+      update MCC015 set BOM_VER = ''
+    </update>
+
+<!--  생산지시  클린 -->
+    <delete id="deleteMPO009" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MPO009 -- 생산 지시
+    </delete>
+    <delete id="deleteMPO011" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MPO011 -- 생산 실적
+    </delete>
+    <delete id="deleteMPO012" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MPO012 -- 검사
+    </delete>
+    <delete id="deleteMPO007" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MPO007 -- 자재 소요량
+    </delete>
+
+    <delete id="deleteMPO010" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MPO010 -- 생산지시계획
+    </delete>
+    
+    <delete id="deleteMPO008" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MPO008 -- 배정
+    </delete>
+
+<!-- 출고 클린 -->
+    <delete id="deleteMQC001" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MQC001 -- qm 검품
+    </delete>
+    <delete id="deleteMWP012" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP012 -- 제품 입고
+    </delete>
+    <delete id="deleteMWP013" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP013 -- 제품 입고 디테일
+    </delete>
+    <delete id="deleteMWP015" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP015 -- 제품 출고
+    </delete>
+    <delete id="deleteMWP016" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP016 -- 제품 출고 디테일
+    </delete>
+    <delete id="deleteMWI001" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWI001 -- 제품 입/출고 정보
+    </delete>
+
+    <!-- 외주 클린 -->
+    <delete id="deleteMWP006" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP006 -- 외주 Bom
+    </delete>
+    <delete id="deleteMWP010" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP010 -- 외주 입고
+    </delete>
+    <delete id="deleteMWP017" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP017 -- 외주 출고
+    </delete>
+    <delete id="deleteMWP018" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MWP018 -- 외주 불량
+    </delete>
+    
+    <!-- 재공품 -->
+    <delete id="deleteMPO013" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MPO013 -- 재공품
+    </delete>
+    
+     <delete id="deleteMPO014" parameterType="org.rnt.com.entity.vo.ResetVO">
+     delete from MPO014 -- 재공품 디테일
+    </delete>
+</mapper>

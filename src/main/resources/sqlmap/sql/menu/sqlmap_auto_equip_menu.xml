@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="auto_equip_menu">
+    <!-- ============================================================================================================================= -->
+    <!-- 자동화 프런트 작업 리스트                                                                                                                                                                                                                           -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchFrontAutoEquipList" resultType="org.rnt.dashboard.vo.AutoEquipVO">
+       SELECT *
+          FROM
+       (SELECT *
+            , ROW_NUMBER() OVER(ORDER BY WORK_DT DESC) AS RNUM
+       FROM
+       (SELECT PROD_SEQ
+             , (SELECT PROD_PO_NO FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ) AS PROD_PO_NO
+             , TO_CHAR(TO_DATE(A.WORK_DT,'YYYYMMDD'),'YYYY/MM/DD')         AS WORK_DT
+             , PROD_TYPE_CD 
+             , (SELECT CODE_NM 
+                  FROM MCC001 
+                 WHERE BCODE = 'PROD_TYPE_CD'
+                   AND SCODE = A.PROD_TYPE_CD) AS PROD_TYPE_NM
+        FROM MPO011 A
+        WHERE EQUIP_CD = 'LINE01'
+          AND (WORK_DT = #{searchToDate} OR PROD_TYPE_CD != 'END')) A
+        ) B
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+     <select id="searchFrontAutoEquipListTotCnt" parameterType="org.rnt.com.entity.vo.EquipVO" resultType="java.lang.Integer">
+       SELECT COUNT(*) AS TOT_CNT
+        FROM MPO011 A
+        WHERE EQUIP_CD = 'LINE01'
+          AND (WORK_DT = #{searchToDate} OR PROD_TYPE_CD != 'END')
+    </select>
+
+    <!-- ============================================================================================================================= -->
+    <!-- 자동화 리어 작업 리스트                                                                                                                                                                                                                           -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchRearAutoEquipList" resultType="org.rnt.dashboard.vo.AutoEquipVO">
+       SELECT *
+          FROM
+       (SELECT *
+            , ROW_NUMBER() OVER(ORDER BY WORK_DT DESC) AS RNUM
+       FROM
+       (SELECT PROD_SEQ
+             , (SELECT PROD_PO_NO FROM MPO009 WHERE PROD_SEQ = A.PROD_SEQ) AS PROD_PO_NO
+             , TO_CHAR(TO_DATE(A.WORK_DT,'YYYYMMDD'),'YYYY/MM/DD')         AS WORK_DT
+             , PROD_TYPE_CD 
+             , (SELECT CODE_NM 
+                  FROM MCC001 
+                 WHERE BCODE = 'PROD_TYPE_CD'
+                   AND SCODE = A.PROD_TYPE_CD) AS PROD_TYPE_NM
+        FROM MPO011 A
+        WHERE EQUIP_CD = 'LINE02'
+          AND (WORK_DT = #{searchToDate} OR PROD_TYPE_CD != 'END')) A
+        ) B
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+     <select id="searchRearAutoEquipListTotCnt" parameterType="org.rnt.com.entity.vo.EquipVO" resultType="java.lang.Integer">
+       SELECT COUNT(*) AS TOT_CNT
+        FROM MPO011 A
+        WHERE EQUIP_CD = 'LINE02'
+          AND (WORK_DT = #{searchToDate} OR PROD_TYPE_CD != 'END')
+    </select>
+
+    <!-- ============================================================================================================================= -->
+    <!-- 자동화 일별 생산 집계                                                                                                                                                                                                                                                           -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchFrontAutoEquipSummary" parameterType="org.rnt.dashboard.vo.AutoEquipVO" resultType="org.rnt.dashboard.vo.AutoEquipVO">
+         SELECT TO_CHAR(NOW(),'YYYY/MM/DD') AS NOW_DAY
+              , TO_CHAR(NOW(),'HH24:MI:SS') AS NOW_TIME
+              , SUM(PO_QTY)     AS TOT_PO_QTY     -- 지시수량
+              , SUM(ACTOK_QTY)  AS TOT_ACTOK_QTY  -- 실적수량
+              , SUM(ACTBAD_QTY) AS TOT_ACTBAD_QTY -- 불량수량
+              , CASE WHEN SUM(PO_QTY) = 0 THEN 0 ELSE SUM(ACTOK_QTY)*100/SUM(PO_QTY) END AS ACTOK_RATE         -- 실적달성율
+              , CASE WHEN SUM(ACTOK_QTY) = 0 THEN 0 ELSE SUM(ACTBAD_QTY)*100/SUM(ACTOK_QTY) END AS ACTBAD_RATE -- 불량율
+        FROM (
+           SELECT 0 AS PO_QTY
+                , COALESCE(B.ACTOK_QTY,0)  AS ACTOK_QTY
+                , COALESCE(B.ACTBAD_QTY,0) AS ACTBAD_QTY  
+            FROM
+            (SELECT EQUIP_CD
+                 , (SELECT EQUIP_NM FROM MCC026 WHERE EQUIP_CD = A.EQUIP_CD LIMIT 1) AS EQUIP_NM
+                 , ACTOK_QTY
+                 , ACTBAD_QTY
+                 , PROD_SEQ
+                 , WRITE_DT
+            FROM MCC908 A
+            WHERE EQUIP_CD = 'LINE01'
+              AND PROD_SEQ = #{prodSeq}
+              AND NOT EXISTS (
+                SELECT ACTOK_QTY FROM MPO011 A
+                WHERE EQUIP_CD = 'LINE01'
+                  AND PROD_SEQ = #{prodSeq}
+                  AND COALESCE(ACTOK_QTY,0) != 0
+              )
+            ORDER BY WRITE_DT DESC
+            LIMIT 1) B
+
+            UNION ALL
+
+            SELECT COALESCE(A.PO_QTY,0) AS PO_QTY
+                 , COALESCE(B.ACTOK_QTY,0) AS ACTOK_QTY
+                 , COALESCE(B.ACTBAD_QTY,0) AS ACTBAD_QTY
+            FROM MPO009 A
+            LEFT OUTER JOIN MPO011 B
+            ON (A.PROD_SEQ   = B.PROD_SEQ)
+            WHERE A.PROD_SEQ = #{prodSeq}
+              AND B.EQUIP_CD = 'LINE01'
+
+            UNION ALL
+
+            SELECT 0 AS PO_QTY, 0 AS ACTOK_QTY, 0 AS ACTBAD_QTY
+        ) A
+    </select>
+
+    <select id="searchFrontAutoEquipChart" parameterType="org.rnt.dashboard.vo.AutoEquipVO" resultType="org.rnt.dashboard.vo.AutoEquipVO">
+           SELECT EQUIP_CD
+                 , EQUIP_NM
+                 , SUM(ACTOK_QTY) AS ACTOK_QTY
+                 , SUM(ACTBAD_QTY) AS ACTBAD_QTY
+                 , MAX(PROD_SEQ) AS PROD_SEQ
+            FROM
+            (SELECT EQUIP_CD
+                 , EQUIP_NM
+                 , ACTOK_QTY
+                 , ACTBAD_QTY
+                 , PROD_SEQ
+                 , WRITE_DT
+            FROM
+            (SELECT EQUIP_CD
+                 , (SELECT EQUIP_NM FROM MCC026 WHERE EQUIP_CD = A.EQUIP_CD LIMIT 1) AS EQUIP_NM
+                 , ACTOK_QTY
+                 , ACTBAD_QTY
+                 , PROD_SEQ
+                 , WRITE_DT
+            FROM MCC908 A
+            WHERE EQUIP_CD = 'LINE01'
+              AND PROD_SEQ = #{prodSeq}
+              AND NOT EXISTS (
+                SELECT ACTOK_QTY FROM MPO011 A
+                WHERE EQUIP_CD = 'LINE01'
+                  AND PROD_SEQ = #{prodSeq}
+                  AND COALESCE(ACTOK_QTY,0) != 0
+              )
+            ORDER BY WRITE_DT DESC
+            LIMIT 1) B
+            
+            UNION ALL
+            
+            SELECT EQUIP_CD
+                 , (SELECT EQUIP_NM FROM MCC026 WHERE EQUIP_CD = A.EQUIP_CD LIMIT 1) AS EQUIP_NM
+                 , ACTOK_QTY
+                 , ACTBAD_QTY
+                 , PROD_SEQ
+                 , WRITE_DT
+            FROM MPO011 A
+            WHERE EQUIP_CD = 'LINE01'
+              AND PROD_SEQ = #{prodSeq}) A
+            GROUP BY EQUIP_CD, EQUIP_NM
+    </select>
+
+    <!-- ============================================================================================================================= -->
+    <!-- 자동화 일별 생산 집계                                                                                                                                                                                                                                                           -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchRearAutoEquipSummary" parameterType="org.rnt.dashboard.vo.AutoEquipVO" resultType="org.rnt.dashboard.vo.AutoEquipVO">
+         SELECT TO_CHAR(NOW(),'YYYY/MM/DD') AS NOW_DAY
+              , TO_CHAR(NOW(),'HH24:MI:SS') AS NOW_TIME
+              , SUM(PO_QTY)     AS TOT_PO_QTY     -- 지시수량
+              , SUM(ACTOK_QTY)  AS TOT_ACTOK_QTY  -- 실적수량
+              , SUM(ACTBAD_QTY) AS TOT_ACTBAD_QTY -- 불량수량
+              , CASE WHEN SUM(PO_QTY) = 0 THEN 0 ELSE SUM(ACTOK_QTY)*100/SUM(PO_QTY) END AS ACTOK_RATE         -- 실적달성율
+              , CASE WHEN SUM(ACTOK_QTY) = 0 THEN 0 ELSE SUM(ACTBAD_QTY)*100/SUM(ACTOK_QTY) END AS ACTBAD_RATE -- 불량율
+        FROM (
+           SELECT 0 AS PO_QTY
+                , COALESCE(B.ACTOK_QTY,0)  AS ACTOK_QTY
+                , COALESCE(B.ACTBAD_QTY,0) AS ACTBAD_QTY  
+            FROM
+            (SELECT EQUIP_CD
+                 , (SELECT EQUIP_NM FROM MCC026 WHERE EQUIP_CD = A.EQUIP_CD LIMIT 1) AS EQUIP_NM
+                 , ACTOK_QTY
+                 , ACTBAD_QTY
+                 , PROD_SEQ
+                 , WRITE_DT
+            FROM MCC908 A
+            WHERE EQUIP_CD = 'LINE02'
+              AND PROD_SEQ = #{prodSeq}
+              AND NOT EXISTS (
+                SELECT ACTOK_QTY FROM MPO011 A
+                WHERE EQUIP_CD = 'LINE02'
+                  AND PROD_SEQ = #{prodSeq}
+                  AND COALESCE(ACTOK_QTY,0) != 0
+              )
+            ORDER BY WRITE_DT DESC
+            LIMIT 1) B
+
+            UNION ALL
+
+            SELECT COALESCE(A.PO_QTY,0) AS PO_QTY
+                 , COALESCE(B.ACTOK_QTY,0) AS ACTOK_QTY
+                 , COALESCE(B.ACTBAD_QTY,0) AS ACTBAD_QTY
+            FROM MPO009 A
+            LEFT OUTER JOIN MPO011 B
+            ON (A.PROD_SEQ   = B.PROD_SEQ)
+            WHERE A.PROD_SEQ = #{prodSeq}
+              AND B.EQUIP_CD = 'LINE02'
+
+            UNION ALL
+
+            SELECT 0 AS PO_QTY, 0 AS ACTOK_QTY, 0 AS ACTBAD_QTY
+        ) A
+    </select>
+
+    <select id="searchRearAutoEquipChart" parameterType="org.rnt.dashboard.vo.AutoEquipVO" resultType="org.rnt.dashboard.vo.AutoEquipVO">
+         SELECT EQUIP_CD
+                 , EQUIP_NM
+                 , SUM(ACTOK_QTY) AS ACTOK_QTY
+                 , SUM(ACTBAD_QTY) AS ACTBAD_QTY
+                 , MAX(PROD_SEQ) AS PROD_SEQ
+            FROM
+            (SELECT EQUIP_CD
+                 , EQUIP_NM
+                 , ACTOK_QTY
+                 , ACTBAD_QTY
+                 , PROD_SEQ
+                 , WRITE_DT
+            FROM
+            (SELECT EQUIP_CD
+                 , (SELECT EQUIP_NM FROM MCC026 WHERE EQUIP_CD = A.EQUIP_CD LIMIT 1) AS EQUIP_NM
+                 , ACTOK_QTY
+                 , ACTBAD_QTY
+                 , PROD_SEQ
+                 , WRITE_DT
+            FROM MCC908 A
+            WHERE EQUIP_CD = 'LINE02'
+              AND PROD_SEQ = #{prodSeq}
+              AND NOT EXISTS (
+                SELECT ACTOK_QTY FROM MPO011 A
+                WHERE EQUIP_CD = 'LINE02'
+                  AND PROD_SEQ = #{prodSeq}
+                  AND COALESCE(ACTOK_QTY,0) != 0
+              )
+            ORDER BY WRITE_DT DESC
+            LIMIT 1) B
+            
+            UNION ALL
+            
+            SELECT EQUIP_CD
+                 , (SELECT EQUIP_NM FROM MCC026 WHERE EQUIP_CD = A.EQUIP_CD LIMIT 1) AS EQUIP_NM
+                 , ACTOK_QTY
+                 , ACTBAD_QTY
+                 , PROD_SEQ
+                 , WRITE_DT
+            FROM MPO011 A
+            WHERE EQUIP_CD = 'LINE02'
+              AND PROD_SEQ = #{prodSeq}) A
+            GROUP BY EQUIP_CD, EQUIP_NM
+    </select>
+
+     <select id="selectItemImage" parameterType="org.rnt.dashboard.vo.AutoEquipVO" resultType="org.rnt.dashboard.vo.AutoEquipVO">
+     SELECT (SELECT ITEM_IMAGE_DATA FROM MCC016 WHERE ITEM_CD = A.ITEM_CD LIMIT 1) AS ITEM_IMAGE_DATA
+       FROM MPO011 A
+       WHERE PROD_SEQ = #{prodSeq}
+         LIMIT 1
+     </select>
+</mapper>

@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="reportMenu">
+    
+    <!-- 리포트 마스터 조회 -->
+    <select id="select" parameterType="org.rnt.report.vo.ReportVO" resultType="org.rnt.report.vo.ReportVO">
+    	SELECT A.FACTORY_CD
+    		 , A.RPT_SEQ
+    		 , A.RPT_DIV_CD
+    		 , TO_CHAR(TO_DATE(A.WRITE_YMD,'YYYYMMDD'),'YYYY.MM.DD') AS WRITE_YMD
+    		 , A.CONT1
+    		 , A.CONT2
+    		 , A.CONT3
+    		 , A.INSPECT_ID
+    		 , GET_SABUN_NM(A.FACTORY_CD, A.INSPECT_ID) AS INSPECT_NM
+    	 	 , A.APPROVE_ID
+    	 	 , GET_SABUN_NM(A.FACTORY_CD, A.APPROVE_ID) AS APPROVE_NM 
+    		 , A.MEASURE_ID
+    		 , GET_SABUN_NM(A.FACTORY_CD, A.MEASURE_ID) AS MEASURE_NM
+    		 , A.CONFIRM_ID
+    		 , GET_SABUN_NM(A.FACTORY_CD, A.CONFIRM_ID) AS CONFIRM_NM
+    		 , A.WRITE_ID
+    		 , GET_SABUN_NM(A.FACTORY_CD, A.WRITE_ID) AS WRITE_NM
+    	  FROM MCC101 A
+    	 WHERE 1=1
+    	   AND A.FACTORY_CD = #{factoryCd}
+    	   AND A.RPT_DIV_CD = #{rptDivCd}
+    	<choose>
+    		<when test="rptDivCd.equals('PREVENT')">
+    	   		AND SUBSTRING(A.WRITE_YMD, 1, 6) = SUBSTRING(REGEXP_REPLACE(#{writeYmd}, '[^0-9]', '', 'g'), 1, 6)
+    	   	</when>
+    	   	<otherwise>
+    	   		AND A.WRITE_YMD = REGEXP_REPLACE(#{writeYmd}, '[^0-9]', '', 'g')
+    		</otherwise>
+    	</choose>
+    </select>
+    
+    <!-- 리포트 디테일 조회 -->
+    <select id="selectDtlList" parameterType="org.rnt.report.vo.ReportDtlVO" resultType="org.rnt.report.vo.ReportDtlVO">
+    	SELECT A.FACTORY_CD
+    		 , A.RPT_SEQ
+    		 , A.RPT_DTL_SEQ
+    		 , A.COL1
+    		 , A.COL2
+    		 , A.COL3
+    		 , A.COL4
+    		 , A.COL5
+    		 , A.COL6
+    	  FROM MCC102 A
+    	 WHERE 1=1
+    	   AND A.FACTORY_CD = #{factoryCd}
+    	   AND A.RPT_SEQ = #{rptSeq}
+    </select>
+    
+    <insert id="insert" parameterType="org.rnt.report.vo.ReportVO">
+    	<selectKey keyProperty="rptSeq" resultType="String" order="BEFORE">
+    		SELECT TABLE_SEQ_NEXTVAL('MCC101')
+    	</selectKey>
+		INSERT INTO MCC101
+		(
+			FACTORY_CD
+			, RPT_SEQ
+			, RPT_DIV_CD
+			, WRITE_YMD
+			, CONT1
+			, CONT2
+			, CONT3
+			, INSPECT_ID
+			, APPROVE_ID
+			, MEASURE_ID
+			, CONFIRM_ID
+			, USE_YN
+			, WRITE_DT
+			, WRITE_ID
+			, UPDATE_DT
+			, UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			, #{rptSeq}
+			, #{rptDivCd}
+			, REGEXP_REPLACE(#{writeYmd}, '[^0-9]', '', 'g')
+			, #{cont1}
+			, #{cont2}
+			, #{cont3}
+			, #{inspectId}
+			, #{approveId}
+			, #{measureId}
+			, #{confirmId}
+			, 'Y'
+			, now()
+			, #{writeId}
+			, now()
+			, #{updateId}
+		)
+	</insert>
+	
+    <update id="update" parameterType="org.rnt.report.vo.ReportVO">
+		UPDATE MCC101
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="rptDivCd != null">,RPT_DIV_CD = #{rptDivCd}</if>
+			<if test="writeYmd != null">,WRITE_YMD = REGEXP_REPLACE(#{writeYmd}, '[^0-9]', '', 'g')</if>
+			<if test="cont1 != null">,CONT1 = #{cont1}</if>
+			<if test="cont2 != null">,CONT2 = #{cont2}</if>
+			<if test="cont3 != null">,CONT3 = #{cont3}</if>
+			<if test="inspectId != null">,INSPECT_ID = #{inspectId}</if>
+			<if test="approveId != null">,APPROVE_ID = #{approveId}</if>
+			<if test="measureId != null">,MEASURE_ID = #{measureId}</if>
+			<if test="confirmId != null">,CONFIRM_ID = #{confirmId}</if>
+			<if test="writeId != null">,WRITE_ID = #{writeId}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND RPT_SEQ = #{rptSeq}
+	</update>
+	
+	<update id="delete" parameterType="org.rnt.report.vo.ReportVO">
+		UPDATE MCC101
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+		    ,USE_YN = 'N'
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND RPT_SEQ = #{rptSeq}
+	</update>
+	
+	<insert id="insertDtl" parameterType="org.rnt.report.vo.ReportDtlVO">
+		INSERT INTO MCC102
+		(
+			FACTORY_CD
+			, RPT_SEQ
+			, RPT_DTL_SEQ
+			, COL1
+			, COL2
+			, COL3
+			, COL4
+			, COL5
+			, COL6
+			, USE_YN
+			, WRITE_DT
+			, WRITE_ID
+			, UPDATE_DT
+			, UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			, #{rptSeq}
+			, (SELECT COALESCE(MAX(RPT_DTL_SEQ) + 1, 1) FROM MCC102
+				WHERE FACTORY_CD = #{factoryCd} AND RPT_SEQ = #{rptSeq})
+			, #{col1}
+			, #{col2}
+			, #{col3}
+			, #{col4}
+			, #{col5}
+			, #{col6}
+			, 'Y'
+			, now()
+			, #{writeId}
+			, now()
+			, #{updateId}
+		)
+	</insert>
+	
+    <update id="updateDtl" parameterType="org.rnt.report.vo.ReportDtlVO">
+		UPDATE MCC102
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="col1 != null">,COL1 = #{col1}</if>
+			<if test="col2 != null">,COL2 = #{col2}</if>
+			<if test="col3 != null">,COL3 = #{col3}</if>
+			<if test="col4 != null">,COL4 = #{col4}</if>
+			<if test="col5 != null">,COL5 = #{col5}</if>
+			<if test="col6 != null">,COL6 = #{col6}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND RPT_SEQ = #{rptSeq}
+		  AND RPT_DTL_SEQ = #{rptDtlSeq}
+	</update>
+    
+    <update id="deleteDtl" parameterType="org.rnt.report.vo.ReportDtlVO">
+		DELETE FROM MCC102
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND RPT_SEQ = #{rptSeq}
+	</update>
+	
+	<!-- 리포트 교육 조회 -->
+    <select id="selectEdu" parameterType="org.rnt.report.vo.ReportEduVO" resultType="org.rnt.report.vo.ReportEduVO">
+    	SELECT A.FACTORY_CD
+    		 , A.RPT_SEQ	 
+			 , TO_CHAR(TO_DATE(A.TRAIN_YMD,'YYYYMMDD'),'YYYY.MM.DD') AS TRAIN_YMD
+			 , A.TEACHER_NM	 
+			 , A.EDU_NM_COST	 
+			 , A.EDU_PLACE	 
+			 , A.EDU_TM	 
+			 , A.NON_EDU_CHK1 
+			 , A.NON_EDU_CHK2 
+			 , A.NON_EDU_CHK3 
+			 , A.EDU_TARGET	 
+			 , A.EDU_CONT	 
+			 , A.USED_BOOK	 
+			 , A.ATT_DOC_CHK1 
+			 , A.ATT_DOC_CONT1
+			 , A.ATT_DOC_CHK2 
+			 , A.ATT_DOC_CHK3 
+			 , A.ATT_DOC_CONT3
+			 , A.USE_YN
+			 , A.WRITE_DT
+			 , A.WRITE_ID
+			 , A.UPDATE_DT 
+			 , A.UPDATE_ID
+    	  FROM MCC103 A
+    	 WHERE 1=1
+    	   AND A.FACTORY_CD = #{factoryCd}
+    	   AND A.RPT_SEQ = #{rptSeq}
+    </select>
+    
+    <insert id="insertEdu" parameterType="org.rnt.report.vo.ReportEduVO">
+		INSERT INTO MCC103
+		(
+			FACTORY_CD
+			, RPT_SEQ
+			, TRAIN_YMD	  
+			, TEACHER_NM	  
+			, EDU_NM_COST	
+			, EDU_PLACE	  
+			, EDU_TM	      
+			, NON_EDU_CHK1 
+			, NON_EDU_CHK2 
+			, NON_EDU_CHK3 
+			, EDU_TARGET	  
+			, EDU_CONT	  
+			, USED_BOOK	  
+			, ATT_DOC_CHK1 
+			, ATT_DOC_CONT1
+			, ATT_DOC_CHK2 
+			, ATT_DOC_CHK3 
+			, ATT_DOC_CONT3
+			, USE_YN
+			, WRITE_DT
+			, WRITE_ID
+			, UPDATE_DT
+			, UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			, #{rptSeq}
+			, REGEXP_REPLACE(#{trainYmd}, '[^0-9]', '', 'g')
+			, #{teacherNm}
+			, #{eduNmCost}
+			, #{eduPlace}
+			, #{eduTm}
+			, #{nonEduChk1}
+			, #{nonEduChk2}
+			, #{nonEduChk3}
+			, #{eduTarget}
+			, #{eduCont}
+			, #{usedBook}
+			, #{attDocChk1}
+			, #{attDocCont1}
+			, #{attDocChk2}
+			, #{attDocChk3}
+			, #{attDocCont3}
+			, 'Y'
+			, now()
+			, #{writeId}
+			, now()
+			, #{updateId}
+		)
+	</insert>
+	
+    <update id="updateEdu" parameterType="org.rnt.report.vo.ReportEduVO">
+		UPDATE MCC103
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="trainYmd != null">,TRAIN_YMD = REGEXP_REPLACE(#{trainYmd}, '[^0-9]', '', 'g')</if>
+			<if test="teacherNm != null">,TEACHER_NM = #{teacherNm}</if>
+			<if test="eduNmCost != null">,EDU_NM_COST = #{eduNmCost}</if>
+			<if test="eduPlace != null">,EDU_PLACE = #{eduPlace}</if>
+			<if test="eduTm != null">,EDU_TM = #{eduTm}</if>
+			<if test="nonEduChk1 != null">,NON_EDU_CHK1 = #{nonEduChk1}</if>
+			<if test="nonEduChk2 != null">,NON_EDU_CHK2 = #{nonEduChk2}</if>
+			<if test="nonEduChk3 != null">,NON_EDU_CHK3 = #{nonEduChk3}</if>
+			<if test="eduTarget != null">,EDU_TARGET = #{eduTarget}</if>
+			<if test="eduCont != null">,EDU_CONT = #{eduCont}</if>
+			<if test="usedBook != null">,USED_BOOK = #{usedBook}</if>
+			<if test="attDocChk1 != null">,ATT_DOC_CHK1 = #{attDocChk1}</if>
+			<if test="attDocCont1 != null">,ATT_DOC_CONT1 = #{attDocCont1}</if>
+			<if test="attDocChk2 != null">,ATT_DOC_CHK2 = #{attDocChk2}</if>
+			<if test="attDocChk3 != null">,ATT_DOC_CHK3 = #{attDocChk3}</if>
+			<if test="attDocCont3 != null">,ATT_DOC_CONT3 = #{attDocCont3}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND RPT_SEQ = #{rptSeq}
+	</update>
+	
+	<update id="deleteEdu" parameterType="org.rnt.report.vo.ReportEduVO">
+		DELETE FROM MCC103
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND RPT_SEQ = #{rptSeq}
+	</update>
+	
+	<!-- 리포트 교육 조회 -->
+    <select id="selectPlc" parameterType="String" resultType="org.rnt.com.entity.vo.PlcVO">
+    	SELECT A.PLC_CD
+			 , A.PLC_TYPE_CD
+			 , A.PLC_STATUS_CD
+			 , A.PROD_SEQ
+			 , A.DATA1
+			 , A.DATA2
+			 , A.DATA3
+    	  FROM MCC907 A
+    	 WHERE PLC_CD = #{plcCd}
+    </select>
+	
+</mapper>

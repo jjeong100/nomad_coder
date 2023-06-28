@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="itemMenu">
+
+    <!-- ============================================================================================================================= -->
+    <!-- 재고 현황 : ItemStock                                                                                                                -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchItemStockList" parameterType="org.rnt.com.entity.vo.ItemStockVO" resultType="org.rnt.com.entity.vo.ItemStockVO">
+        SELECT *
+		FROM (
+			SELECT WORKSHOP_CD
+			     ,(SELECT WORKSHOP_NM FROM MCC042 WHERE WORKSHOP_CD = A.WORKSHOP_CD) AS WORKSHOP_NM
+                 , ITEM_CD
+			     , ITEM_NM
+			     , TO_CHAR(BASE_QTY, 'FM99,999,999') AS BASE_QTY
+			     , TO_CHAR(ITEM_IN_QTY, 'FM99,999,999') AS ITEM_IN_QTY
+			     , TO_CHAR(ITEM_IN_CAN_QTY, 'FM99,999,999') AS ITEM_IN_CAN_QTY
+			     , TO_CHAR(ITEM_OUT_QTY, 'FM99,999,999') AS ITEM_OUT_QTY
+			     , TO_CHAR(ITEM_OUT_WAIT_QTY, 'FM99,999,999') AS ITEM_OUT_WAIT_QTY
+			     , TO_CHAR(ITEM_OUT_CAN_QTY, 'FM99,999,999') AS ITEM_OUT_CAN_QTY
+			     , TO_CHAR(ITEM_MODIFY_QTY, 'FM99,999,999') AS ITEM_MODIFY_QTY
+                 , TO_CHAR(ITEM_DISUSE_QTY, 'FM99,999,999') AS ITEM_DISUSE_QTY
+                 , SB_DT
+			     <if test="sortCol != null">
+			     , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			     </if>
+			     <if test="sortCol == null">
+			     , ROW_NUMBER() OVER(ORDER BY SB_DT ASC) AS RNUM
+			     </if>
+			FROM (
+					SELECT SB_DT
+					      ,WORKSHOP_CD
+					      ,ITEM_CD
+					      ,(SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+					      ,0 AS BASE_QTY
+					      ,CAST(CAST(SUM(ITEM_IN_QTY) AS DECIMAL) AS FLOAT) AS ITEM_IN_QTY           /* 제품 입고 */
+					      ,CAST(CAST(SUM(ITEM_IN_CAN_QTY) AS DECIMAL) AS FLOAT) AS ITEM_IN_CAN_QTY   /* 제품 입고 취소 */
+					      ,CAST(CAST(SUM(ITEM_OUT_QTY) AS DECIMAL) AS FLOAT) AS ITEM_OUT_QTY         /* 제품 출고  */
+					      ,CAST(CAST(SUM(ITEM_OUT_WAIT_QTY) AS DECIMAL) AS FLOAT) AS ITEM_OUT_WAIT_QTY /* 제품 출고 대기 */
+					      ,CAST(CAST(SUM(ITEM_OUT_CAN_QTY) AS DECIMAL) AS FLOAT) AS ITEM_OUT_CAN_QTY /* 제품 출고 취소  */
+					      ,CAST(CAST(SUM(ITEM_MODIFY_QTY) AS DECIMAL) AS FLOAT) AS ITEM_MODIFY_QTY   /* 제품 재고 조정  */
+					      ,CAST(CAST(SUM(ITEM_DISUSE_QTY) AS DECIMAL) AS FLOAT) AS ITEM_DISUSE_QTY   /* 제품 재고 조정  */
+					FROM (
+						SELECT ITEMIN_DT AS SB_DT
+						      ,WORKSHOP_CD
+						      ,ITEM_CD
+						      ,CASE WHEN ITEM_IN_TYPE_CD = 'IN' THEN INOK_QTY ELSE 0 END AS ITEM_IN_QTY
+						      ,CASE WHEN ITEM_IN_TYPE_CD = 'IN_CAN' THEN INOK_QTY ELSE 0 END AS ITEM_IN_CAN_QTY
+						      ,0 AS ITEM_OUT_QTY
+						      ,0 AS ITEM_OUT_WAIT_QTY
+						      ,0 AS ITEM_OUT_CAN_QTY
+						      ,0 AS ITEM_MODIFY_QTY
+						      ,0 AS ITEM_DISUSE_QTY
+						FROM MWP012 -- 입고
+						UNION ALL
+						SELECT ITEMOUT_DT AS SB_DT
+						       ,(SELECT WORKSHOP_CD FROM MWP012 WHERE LOTID=A.LOTID) AS WORKSHOP_CD
+						       ,ITEM_CD
+						       ,0 AS ITEM_IN_QTY
+						       ,0 AS ITEM_IN_CAN_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'OUT' THEN OUT_QTY ELSE 0 END AS ITEM_OUT_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_WAIT' THEN OUT_QTY ELSE 0 END AS ITEM_OUT_WAIT_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_CAN' THEN OUT_QTY ELSE 0 END AS ITEM_OUT_CAN_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'MODIFY' THEN OUT_QTY ELSE 0 END AS ITEM_MODIFY_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'DISUSE' THEN OUT_QTY ELSE 0 END AS ITEM_DISUSE_QTY
+						FROM MWP015 A -- 출고
+					) A
+					GROUP BY SB_DT,WORKSHOP_CD,ITEM_CD
+				  ) A
+			WHERE 1=1
+			  <if test="searchFromDate != null and searchFromDate != ''">
+			  	AND A.SB_DT >= #{searchFromDate}
+			  </if>
+			  <if test="searchToDate != null and searchToDate != ''">
+			  	AND A.SB_DT <![CDATA[<=]]> #{searchToDate}
+			  </if>
+			  <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+			  	AND A.WORKSHOP_CD = #{searchWorkshopCd}
+              </if>
+              <if test="searchItemCd != null and searchItemCd != ''">
+              	AND A.ITEM_CD = #{searchItemCd}
+              </if>
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+		</if>
+    </select>
+
+    <select id="searchBaseQty" parameterType="org.rnt.com.entity.vo.ItemStockVO" resultType="java.lang.String">
+       SELECT COALESCE(SUM(IN_QTY-OUT_QTY),0)::INTEGER AS BASE_QTY
+			FROM (
+				SELECT A.WORKSHOP_CD,
+				       A.ITEM_CD,
+				       SUM(CASE WHEN ITEM_IN_TYPE_CD = 'IN' THEN INOK_QTY ELSE 0 END) AS IN_QTY
+				       ,0 AS OUT_QTY
+				FROM MWP012 A
+				WHERE 1=1
+			        AND A.USE_YN = 'Y'
+			        AND ITEMIN_DT   <![CDATA[<]]>  #{sbDt}
+			        AND ITEM_CD=   #{itemCd}
+			        AND WORKSHOP_CD= #{searchWorkshopCd}
+			        GROUP BY A.WORKSHOP_CD, A.ITEM_CD
+		        UNION all
+		        SELECT A.WORKSHOP_CD,
+			       A.ITEM_CD,
+			       0 AS IN_QTY,
+			       COALESCE(SUM(ITEM_OUT_QTY),0)+COALESCE(SUM(ITEM_OUT_WAIT_QTY),0)
+			       +COALESCE(SUM(ITEM_DISUSE_QTY),0)-COALESCE(SUM(ITEM_MODIFY_QTY),0)-COALESCE(SUM(ITEM_OUT_CAN_QTY),0) AS OUT_QTY
+		        FROM(
+		        SELECT (SELECT WORKSHOP_CD FROM MWP012 WHERE LOTID=A.LOTID) AS WORKSHOP_CD
+		               ,ITEM_CD
+		               ,CASE WHEN ITEM_OUT_TYPE_CD = 'OUT' THEN OUT_QTY ELSE 0 END AS ITEM_OUT_QTY
+			       ,CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_WAIT' THEN OUT_QTY ELSE 0 END AS ITEM_OUT_WAIT_QTY
+			       ,CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_CAN' THEN OUT_QTY ELSE 0 END AS ITEM_OUT_CAN_QTY
+			       ,CASE WHEN ITEM_OUT_TYPE_CD = 'MODIFY' THEN OUT_QTY ELSE 0 END AS ITEM_MODIFY_QTY
+			       ,CASE WHEN ITEM_OUT_TYPE_CD = 'DISUSE' THEN OUT_QTY ELSE 0 END AS ITEM_DISUSE_QTY
+		        FROM MWP015 A
+		        WHERE 1=1
+		        AND USE_YN = 'Y'
+		        AND ITEMOUT_DT   <![CDATA[<]]>  #{sbDt}
+                        AND ITEM_CD= #{itemCd}
+		        ) A
+		        WHERE WORKSHOP_CD=#{searchWorkshopCd}
+		        GROUP BY WORKSHOP_CD, ITEM_CD
+        ) A
+    </select>
+
+    <select id="searchItemStockListTotCnt" parameterType="org.rnt.com.entity.vo.ItemStockVO" resultType="java.lang.Integer">
+        SELECT COUNT(SB_DT) AS TOT_CNT
+        FROM (
+            SELECT SB_DT
+			FROM (
+					SELECT SB_DT
+					      ,WORKSHOP_CD
+					      ,ITEM_CD
+					      ,(SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+					      ,0 AS BASE_QTY
+					      ,CAST(CAST(SUM(ITEM_IN_QTY) AS DECIMAL) AS FLOAT) AS ITEM_IN_QTY           /* 제품 입고 */
+					      ,CAST(CAST(SUM(ITEM_IN_CAN_QTY) AS DECIMAL) AS FLOAT) AS ITEM_IN_CAN_QTY   /* 제품 입고 취소 */
+					      ,CAST(CAST(SUM(ITEM_OUT_QTY) AS DECIMAL) AS FLOAT) AS ITEM_OUT_QTY         /* 제품 출고  */
+					      ,CAST(CAST(SUM(ITEM_OUT_WAIT_QTY) AS DECIMAL) AS FLOAT) AS ITEM_OUT_WAIT_QTY /* 제품 출고 대기 */
+					      ,CAST(CAST(SUM(ITEM_OUT_CAN_QTY) AS DECIMAL) AS FLOAT) AS ITEM_OUT_CAN_QTY /* 제품 출고 취소  */
+					      ,CAST(CAST(SUM(ITEM_MODIFY_QTY) AS DECIMAL) AS FLOAT) AS ITEM_MODIFY_QTY   /* 제품 재고 조정  */
+					      ,CAST(CAST(SUM(ITEM_DISUSE_QTY) AS DECIMAL) AS FLOAT) AS ITEM_DISUSE_QTY   /* 제품 재고 조정  */
+					FROM (
+						SELECT ITEMIN_DT AS SB_DT
+						      ,WORKSHOP_CD
+						      ,ITEM_CD
+						      ,CASE WHEN ITEM_IN_TYPE_CD = 'IN' THEN INOK_QTY ELSE 0 END AS ITEM_IN_QTY
+						      ,CASE WHEN ITEM_IN_TYPE_CD = 'IN_CAN' THEN INOK_QTY ELSE 0 END AS ITEM_IN_CAN_QTY
+						      ,0 AS ITEM_OUT_QTY
+						      ,0 AS ITEM_OUT_WAIT_QTY
+						      ,0 AS ITEM_OUT_CAN_QTY
+						      ,0 AS ITEM_MODIFY_QTY
+						      ,0 AS ITEM_DISUSE_QTY
+						FROM MWP012 -- 입고
+						UNION ALL
+						SELECT ITEMOUT_DT AS SB_DT
+						       ,(SELECT WORKSHOP_CD FROM MWP012 WHERE LOTID=A.LOTID) AS WORKSHOP_CD
+						       ,ITEM_CD
+						       ,0 AS ITEM_IN_QTY
+						       ,0 AS ITEM_IN_CAN_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'OUT' THEN OUT_QTY ELSE 0 END AS ITEM_OUT_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_WAIT' THEN OUT_QTY ELSE 0 END AS ITEM_OUT_WAIT_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_CAN' THEN OUT_QTY ELSE 0 END AS ITEM_OUT_CAN_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'MODIFY' THEN OUT_QTY ELSE 0 END AS ITEM_MODIFY_QTY
+						       ,CASE WHEN ITEM_OUT_TYPE_CD = 'DISUSE' THEN OUT_QTY ELSE 0 END AS ITEM_DISUSE_QTY
+						FROM MWP015 A -- 출고
+					) A
+					GROUP BY SB_DT,WORKSHOP_CD,ITEM_CD
+				) A
+			WHERE 1=1
+			  <if test="searchFromDate != null and searchFromDate != ''">
+			  	AND A.SB_DT >= #{searchFromDate}
+			  </if>
+			  <if test="searchToDate != null and searchToDate != ''">
+			  	AND A.SB_DT <![CDATA[<=]]> #{searchToDate}
+			  </if>
+			  <if test="searchWorkshopCd != null and searchWorkshopCd != ''">
+			  	AND A.WORKSHOP_CD = #{searchWorkshopCd}
+              </if>
+              <if test="searchItemCd != null and searchItemCd != ''">
+              	AND A.ITEM_CD = #{searchItemCd}
+              </if>
+	    ) A
+    </select>
+
+    <!-- ============================================================================================================================= -->
+    <!-- 수불 현황 : ItemStock                                                                                                                -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchItemSubulList" parameterType="org.rnt.com.entity.vo.ItemSubulVO" resultType="org.rnt.com.entity.vo.ItemSubulVO">
+        SELECT *
+		FROM (
+			SELECT TO_CHAR(TO_DATE(SB_DT,'YYYYMMDD'),'YYYY/MM/DD') AS SB_DT
+				 , ITEM_NM
+			     , ITEM_CD
+			     , GUBUN
+			     , WORKSHOP_CD
+                 , WORKSHOP_NM
+			     , LOTID
+			     , QTY
+			     <if test="sortCol != null">
+			     , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			     </if>
+			     <if test="sortCol == null">
+			     , ROW_NUMBER() OVER(ORDER BY SB_DT DESC) AS RNUM
+			     </if>
+			FROM (
+					SELECT SB_DT
+					      ,ITEM_CD
+					      ,(SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+					      ,GUBUN
+					      ,WORKSHOP_CD
+                          ,(SELECT WORKSHOP_NM FROM MCC042 WHERE WORKSHOP_CD = A.WORKSHOP_CD) AS WORKSHOP_NM
+					      ,LOTID
+					      ,TO_CHAR(QTY, 'FM99,999,999') AS QTY
+					FROM (
+					SELECT ITEMIN_DT AS SB_DT
+					      ,ITEM_CD
+					      ,WORKSHOP_CD
+					      ,(SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_IN_TYPE_CD' AND SCODE = A.ITEM_IN_TYPE_CD ) AS GUBUN
+					      ,LOTID AS LOTID
+					      ,INOK_QTY AS QTY
+					FROM MWP012 A -- 입고
+					UNION ALL
+					SELECT ITEMOUT_DT AS SB_DT
+					      ,ITEM_CD
+					      ,(SELECT WORKSHOP_CD FROM MWP012 WHERE LOTID=A.LOTID) AS WORKSHOP_CD
+					      ,(SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_OUT_TYPE_CD' AND SCODE = A.ITEM_OUT_TYPE_CD ) AS GUBUN
+					      ,LOT_OUT_ID AS LOTID
+					      ,OUT_QTY AS QTY
+					FROM MWP015 A -- 출고
+					) A
+			WHERE 1=1
+			  <if test="searchFromDate != null and searchFromDate != ''">
+			  	AND A.SB_DT >= #{searchFromDate}
+			  </if>
+			  <if test="searchToDate != null and searchToDate != ''">
+			  	AND A.SB_DT <![CDATA[<=]]> #{searchToDate}
+			  </if>
+              <if test="searchItemCd != null and searchItemCd != ''">
+              	AND A.ITEM_CD = #{searchItemCd}
+              </if>
+			) A
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+		</if>
+    </select>
+
+    <select id="searchItemSubulListTotCnt" parameterType="org.rnt.com.entity.vo.ItemSubulVO" resultType="java.lang.Integer">
+    	SELECT COUNT(SB_DT) AS TOT_CNT
+        FROM (
+        	SELECT SB_DT
+			FROM (
+					SELECT SB_DT
+					      ,ITEM_CD
+					      ,(SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+					      ,GUBUN
+					      ,LOTID
+					      ,QTY
+					FROM (
+					SELECT ITEMIN_DT AS SB_DT
+					      ,ITEM_CD
+					      ,(SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_IN_TYPE_CD' AND SCODE = A.ITEM_IN_TYPE_CD ) AS GUBUN
+					      ,LOTID AS LOTID
+					      ,INOK_QTY AS QTY
+					FROM MWP012 A -- 입고
+					UNION ALL
+					SELECT ITEMOUT_DT AS SB_DT
+					      ,ITEM_CD
+					      ,(SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_OUT_TYPE_CD' AND SCODE = A.ITEM_OUT_TYPE_CD ) AS GUBUN
+					      ,LOT_OUT_ID AS LOTID
+					      ,OUT_QTY AS QTY
+					FROM MWP015 A -- 출고
+					) A
+			WHERE 1=1
+			  <if test="searchFromDate != null and searchFromDate != ''">
+			  	AND A.SB_DT >= #{searchFromDate}
+			  </if>
+			  <if test="searchToDate != null and searchToDate != ''">
+			  	AND A.SB_DT <![CDATA[<=]]> #{searchToDate}
+			  </if>
+              <if test="searchItemCd != null and searchItemCd != ''">
+              	AND A.ITEM_CD = #{searchItemCd}
+              </if>
+			) A
+	    ) A
+    </select>
+
+</mapper>

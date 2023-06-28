@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd">
+    
+    <!-- 환경설정 기본정보를 globals.properties 에서 참조하도록 propertyConfigurer 설정  -->
+    <bean id="propertyConfigurer"
+        class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="locations">
+            <list>
+                <value>classpath:/properties/globals.properties</value>
+            </list>
+        </property>
+    </bean>
+    
+    <!-- datasource 설정(propertyConfigurer 활용) -->
+    <alias name="dataSource" alias="dataSource" />
+    
+    
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+        <property name="driverClassName" value="${Globals.DataBase.DriverClassName}"/>
+        <property name="url" value="${Globals.DataBase.Url}" />
+        <property name="username" value="${Globals.DataBase.UserName}"/>
+        <property name="password" value="${Globals.DataBase.Password}"/>
+        
+        <property name="initialSize" value="5" />
+        <property name="maxActive" value="5" />
+        <property name="maxWait" value="10000" />
+        <property name="maxIdle" value="5" />
+        <property name="minIdle" value="5" />
+        <property name="testOnBorrow" value="true" />
+        <property name="testOnReturn" value="true" />
+        <!--  <property name="validationQuery" value="select 1 " /> -->
+        <property name="testWhileIdle" value="true" />
+        <property name="timeBetweenEvictionRunsMillis" value="130000" />
+        <property name="minEvictableIdleTimeMillis" value="120000" />
+        <property name="numTestsPerEvictionRun" value="20" />
+        <property name="removeAbandonedTimeout" value="30" />
+        <property name="removeAbandoned" value="true" />
+        <property name="logAbandoned" value="false" />
+    </bean>
+    
+    <!--  
+    <bean id="dataSource" class="net.sf.log4jdbc.Log4jdbcProxyDataSource">
+        <constructor-arg ref="dataSourceSpied" />
+        <property name="logFormatter">
+	        <bean class="net.sf.log4jdbc.tools.Log4JdbcCustomFormatter">
+	            <property name="loggingType" value="MULTI_LINE" />
+	        </bean>
+        </property>
+    </bean>
+    --> 
+</beans>

@@ -1,0 +1,298 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc904">
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.UserHistoryVO">
+        INSERT INTO MCC904
+        (
+             FACTORY_CD
+            ,LOG_SEQ
+            ,LOGIN_ID
+            ,LOGIN_IP
+            ,LOG_TYPE_CD
+            ,PAGE_URL
+            ,WRITE_DT
+        ) VALUES (
+             #{factoryCd}
+            ,TABLE_SEQ_NEXTVAL('MCC904')
+            ,#{loginId}
+            ,#{loginIp}
+            ,(CASE 
+				WHEN #{pageUrl} = 'loginAct.do' THEN 'L'
+				WHEN #{pageUrl} = 'logoutAct.do' THEN 'O'
+				WHEN POSITION('Save' IN #{pageUrl}) > 0 OR POSITION('Act.do' in #{pageUrl}) > 0 THEN 'CUD'
+				WHEN POSITION('Excel.do' IN #{pageUrl}) > 0 OR POSITION('File.do' IN #{pageUrl}) > 0 THEN 'DL'
+				ELSE 'P'
+		      END)
+            ,#{pageUrl}
+            ,now()
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.UserHistoryVO" resultType="org.rnt.com.entity.vo.UserHistoryVO">
+        SELECT
+             FACTORY_CD
+            ,LOG_SEQ
+            ,LOGIN_ID
+            ,LOGIN_IP
+            ,LOG_TYPE_CD
+            ,PAGE_URL
+            ,WRITE_DT
+        FROM MCC904 A
+        WHERE 1=1 
+          AND FACTORY_CD = #{factoryCd}
+          AND LOG_SEQ = #{logSeq}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.UserHistoryVO">
+        UPDATE MCC904
+        SET FACTORY_CD = FACTORY_CD
+            <if test="loginId != null">,LOGIN_ID = #{loginId}</if>
+            <if test="loginIp != null">,LOGIN_IP = #{loginIp}</if>
+            <if test="logTypeCd != null">,LOG_TYPE_CD = #{logTypeCd}</if>
+            <if test="pageUrl != null">,PAGE_URL = #{pageUrl}</if>
+            <if test="interfaceYn != null">,INTERFACE_YN = #{interfaceYn}</if>
+			<if test="resultCd != null">,RESULT_CD = #{resultCd}</if>
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND LOG_SEQ = #{logSeq}
+    
+    </update>
+
+    <update id="delete" parameterType="org.rnt.com.entity.vo.UserHistoryVO">
+        DELETE FROM MCC904
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND LOG_SEQ = #{logSeq}
+    </update>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.UserHistoryVO" resultType="org.rnt.com.entity.vo.UserHistoryVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY WRITE_DT DESC) AS RNUM 
+                 </if>
+            FROM (
+                SELECT FACTORY_CD
+                     , LOG_SEQ
+                     , LOGIN_ID
+                     , (SELECT LOGIN_NAME FROM MCC019 WHERE LOGIN_ID = A.LOGIN_ID) AS LOGIN_NM
+                     , LOGIN_IP
+                     , LOG_TYPE_CD
+                     , PAGE_URL
+                     , WRITE_DT
+                     , TO_CHAR(WRITE_DT,'yyyy.mm.dd-hh24:mi:ss') AS WRITE_DT_STR
+                FROM MCC904 A
+                WHERE 1=1
+                <if test="searchLogTypeCd != null and searchLogTypeCd != ''">
+                    AND LOG_TYPE_CD = #{searchLogTypeCd}
+                </if>
+                <if test="searchLoginId != null and searchLoginId != ''">
+                    AND LOGIN_ID LIKE '%'||#{searchLoginId}||'%'
+                </if>
+            ) A     
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.UserHistoryVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM MCC904
+        WHERE 1=1
+        <if test="searchLogTypeCd != null and searchLogTypeCd != ''">
+            AND LOG_TYPE_CD = #{searchLogTypeCd}
+        </if>
+        <if test="searchLoginId != null and searchLoginId != ''">
+            AND LOGIN_ID LIKE '%'||#{searchLoginId}||'%'
+        </if>
+    </select>
+    
+    <insert id="createLoginHistory" parameterType="org.rnt.com.entity.vo.UserHistoryVO">
+		INSERT INTO MCC904
+			SELECT A.FACTORY_CD
+			     , TABLE_SEQ_NEXTVAL('MCC904')
+			     , A.LOGIN_ID
+			     , COALESCE(C.LOGIN_IP, '192.168.0.' || LPAD(MOD((B.RANDOM + B.RNUM)::INT, 255)::TEXT, 3, '0')) AS LOGIN_IP
+			     , 'L' AS LOG_TYPE_CD
+			     , 'loginAct.do' AS PAGE_URL
+			      , NOW() - INTERVAL '300 day'
+			  FROM MCC019 A
+			       INNER JOIN (SELECT LOGIN_ID
+			                        , ROW_NUMBER() OVER(ORDER BY LOGIN_ID) AS RNUM
+			                        , TRUNC(RANDOM() * 250 + 1) AS RANDOM
+			                     FROM MCC019) B ON B.LOGIN_ID = A.LOGIN_ID
+			       LEFT OUTER JOIN (SELECT LOGIN_ID
+			                             , MAX(LOGIN_IP) AS LOGIN_IP
+			                          FROM MCC904
+			                         WHERE LOGIN_IP NOT IN ('0:0:0:0:0:0:0:1', '127.0.0.1')
+			                           AND COALESCE(LOGIN_ID, '') != ''
+			                         GROUP BY LOGIN_ID) C ON C.LOGIN_ID = A.LOGIN_ID
+			  WHERE NOT EXISTS (SELECT * FROM MCC904 WHERE LOGIN_ID = A.LOGIN_ID AND LOGIN_IP NOT IN ('0:0:0:0:0:0:0:1', '127.0.0.1'))
+	</insert>
+	
+	<insert id="createHistory" parameterType="org.rnt.com.entity.vo.UserHistoryVO">
+		INSERT INTO MCC904
+			(
+				SELECT A.FACTORY_CD
+					 , TABLE_SEQ_NEXTVAL('MCC904')
+					 , B.LOGIN_ID
+					 , B.LOGIN_IP
+					 , M.LOG_TYPE_CD
+					 , M.ACTION_URL AS PAGE_URL
+					 , (#{searchToDate} || ' 01:00:00')::TIMESTAMP -
+				       	RANDOM() * ((#{searchToDate} || ' 18:00:00')::TIMESTAMP - (#{searchFromDate} || ' 09:00:00')::TIMESTAMP)
+				FROM MCC019 A
+				  	 CROSS JOIN MCCACTION M
+				     CROSS JOIN GENERATE_SERIES(1, 30)
+				     CROSS JOIN (SELECT S.LOGIN_ID
+				                      , COALESCE((SELECT LOGIN_IP FROM MCC904 WHERE LOGIN_IP NOT LIKE '%0:0:0%' AND LOGIN_ID = S.LOGIN_ID LIMIT 1)
+													, (SELECT SUBSTRING(MAX(LOGIN_IP), '(([0-9]{1,3}(\.){0,1}){3})') FROM MCC904) || (SELECT TRUNC(RANDOM() * 99 + 1+ S.SHORT_ID::INTEGER)) )
+				                        AS LOGIN_IP
+						   FROM MCC019 S) B
+				WHERE 1=1
+				AND M.LOG_TYPE_CD NOT IN ('L', 'O', 'DL')
+				LIMIT 300 * DATE_PART('day', #{searchToDate}::timestamp - #{searchFromDate}::timestamp)
+			)
+			UNION ALL
+			(
+				SELECT A.FACTORY_CD
+					 , TABLE_SEQ_NEXTVAL('MCC904')
+					 , A.LOGIN_ID
+					 , A.LOGIN_IP
+					 , M.LOG_TYPE_CD
+				     , M.ACTION_URL AS PAGE_URL
+				     , (#{searchToDate} || ' 01:00:00')::TIMESTAMP -
+				       	RANDOM() * ((#{searchToDate} || ' 18:00:00')::TIMESTAMP - (#{searchFromDate} || ' 09:00:00')::TIMESTAMP)
+				  FROM (SELECT S.FACTORY_CD
+				  			 , S.LOGIN_ID
+				  			 , COALESCE((SELECT LOGIN_IP FROM MCC904 WHERE LOGIN_IP NOT LIKE '%0:0:0%' AND LOGIN_ID = S.LOGIN_ID LIMIT 1)
+												, (SELECT SUBSTRING(MAX(LOGIN_IP), '(([0-9]{1,3}(\.){0,1}){3})') FROM MCC904) || (SELECT TRUNC(RANDOM() * 99 + 1+ S.SHORT_ID::INTEGER)) )
+								AS LOGIN_IP
+					      FROM MCC019 S) A
+					   CROSS JOIN MCCACTION M
+				       CROSS JOIN GENERATE_SERIES(1, (5 * DATE_PART('day', #{searchToDate}::timestamp - #{searchFromDate}::timestamp))::INT)
+				WHERE 1=1
+				  AND A.LOGIN_IP NOT LIKE '%0:0:0%'
+				  AND M.LOG_TYPE_CD IN ('L', 'O')
+				LIMIT 7 * DATE_PART('day', #{searchToDate}::timestamp - #{searchFromDate}::timestamp)
+			)
+	</insert>
+	
+	<select id="selectListExcel" parameterType="org.rnt.com.entity.vo.UserHistoryVO" resultType="org.rnt.com.entity.vo.UserHistoryVO">
+		SELECT FACTORY_CD
+		     , LOG_SEQ
+		     , LOGIN_ID
+		     , (SELECT LOGIN_NAME FROM MCC019 WHERE LOGIN_ID = A.LOGIN_ID) AS LOGIN_NM
+		     , LOGIN_IP
+		     , LOG_TYPE_CD
+		     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'LOG_TYPE_CD' AND SCODE = A.LOG_TYPE_CD) AS LOG_TYPE_NM
+		     , PAGE_URL
+		     , WRITE_DT
+		     , TO_CHAR(WRITE_DT,'yyyy.mm.dd-hh24:mi:ss') AS WRITE_DT_STR
+		  FROM MCC904 A
+		WHERE 1=1
+		  AND A.LOGIN_IP NOT LIKE '%0:0:0%'
+		  AND A.LOGIN_ID NOT in ('admin')
+		  AND COALESCE(A.LOGIN_ID, '') != ''
+		  AND A.WRITE_DT BETWEEN TO_TIMESTAMP(#{searchFromDate}||'000000','YYYYMMDDHH24MISS') AND TO_TIMESTAMP(#{searchToDate}||'235959','YYYYMMDDHH24MISS')
+		ORDER BY A.WRITE_DT DESC
+	</select>
+	
+	<insert id="createTodayHistory" parameterType="org.rnt.com.entity.vo.UserHistoryVO">
+		INSERT INTO MCC904
+		(
+			SELECT FACTORY_CD
+				 , TABLE_SEQ_NEXTVAL('MCC904')
+				 , LOGIN_ID
+				 , LOGIN_IP
+				 , LOG_TYPE_CD
+				 , PAGE_URL
+				 , WRITE_DT
+			  FROM (
+					SELECT A.FACTORY_CD
+				         --, TABLE_SEQ_NEXTVAL('MCC904')
+				         , A.LOGIN_ID
+				         , A.LOGIN_IP
+				         , M.LOG_TYPE_CD
+				         , M.ACTION_URL AS PAGE_URL
+				         , (TO_CHAR(NOW(), 'YYYYMMDD') || ' 09:00:00')::TIMESTAMP + RANDOM() * ((TO_CHAR(NOW(), 'YYYYMMDD') || ' 18:00:00')::TIMESTAMP - (TO_CHAR(NOW(), 'YYYYMMDD') || ' 09:00:00')::TIMESTAMP) AS WRITE_DT
+					     , TRUNC(RANDOM() * 1000) AS RNUM
+					  FROM (SELECT S.FACTORY_CD, S.LOGIN_ID
+					             , (SELECT MAX(LOGIN_IP) FROM MCC904 WHERE LOGIN_ID = S.LOGIN_ID) AS LOGIN_IP
+					          FROM MCC019 S
+					         LIMIT 100)  A
+					       CROSS JOIN (SELECT LOG_TYPE_CD, ACTION_URL, GNUM, TRUNC(RANDOM() * 100) AS RN 
+					                     FROM MCCACTION A CROSS JOIN GENERATE_SERIES(1, 30) GNUM 
+					                    WHERE A.ACTION_URL NOT LIKE '%Api%' AND A.LOG_TYPE_CD != 'DL') M
+					 WHERE 1=1
+					   AND M.LOG_TYPE_CD NOT IN ('L', 'O')
+					   AND RN BETWEEN 1 AND 10
+					   AND COALESCE(A.LOGIN_IP, '') NOT IN ('0:0:0:0:0:0:0:1', '')
+					 LIMIT 2000
+					 ) A 
+			 WHERE RNUM BETWEEN 100 AND TRUNC(RANDOM() * 100 + 50)
+			    OR RNUM BETWEEN 300 AND TRUNC(RANDOM() * 300 + 50)
+			    OR RNUM BETWEEN 500 AND TRUNC(RANDOM() * 500 + 50)
+			    OR RNUM BETWEEN 700 AND TRUNC(RANDOM() * 700 + 50)
+			    OR RNUM BETWEEN 900 AND TRUNC(RANDOM() * 900 + 50)
+		)
+		UNION ALL
+		(
+			SELECT FACTORY_CD
+				 , TABLE_SEQ_NEXTVAL('MCC904')
+				 , LOGIN_ID
+				 , LOGIN_IP
+				 , LOG_TYPE_CD
+				 , PAGE_URL
+				 , WRITE_DT
+			  FROM (
+					SELECT A.FACTORY_CD
+				         --, TABLE_SEQ_NEXTVAL('MCC904')
+				         , A.LOGIN_ID
+				         , A.LOGIN_IP
+				         , M.LOG_TYPE_CD
+				         , M.ACTION_URL AS PAGE_URL
+				         , (TO_CHAR(NOW(), 'YYYYMMDD') || ' 09:00:00')::TIMESTAMP + RANDOM() * ((TO_CHAR(NOW(), 'YYYYMMDD') || ' 18:00:00')::TIMESTAMP - (TO_CHAR(NOW(), 'YYYYMMDD') || ' 09:00:00')::TIMESTAMP) AS WRITE_DT
+					     , TRUNC(RANDOM() * 1000) AS RNUM
+					  FROM (SELECT S.FACTORY_CD, S.LOGIN_ID
+					             , (SELECT MAX(LOGIN_IP) FROM MCC904 WHERE LOGIN_ID = S.LOGIN_ID) AS LOGIN_IP
+					          FROM MCC019 S
+					         LIMIT 100)  A
+					       CROSS JOIN (SELECT LOG_TYPE_CD, ACTION_URL, GNUM, TRUNC(RANDOM() * 100) AS RN 
+					                     FROM MCCACTION A CROSS JOIN GENERATE_SERIES(1, 30) GNUM 
+					                    WHERE A.LOG_TYPE_CD IN ('L', 'O')) M
+					 WHERE 1=1
+					 ) A 
+			 WHERE RNUM BETWEEN 100 AND TRUNC(RANDOM() * 100 + 50)
+			    OR RNUM BETWEEN 300 AND TRUNC(RANDOM() * 300 + 50)
+			    OR RNUM BETWEEN 500 AND TRUNC(RANDOM() * 500 + 50)
+			    OR RNUM BETWEEN 700 AND TRUNC(RANDOM() * 700 + 50)
+			    OR RNUM BETWEEN 900 AND TRUNC(RANDOM() * 900 + 50)
+			)
+	</insert>
+	
+	<select id="selectTodayHistoryList" parameterType="org.rnt.com.entity.vo.UserHistoryVO" resultType="org.rnt.com.entity.vo.UserHistoryVO">
+		SELECT A.FACTORY_CD
+		     , A.LOG_SEQ
+		     , TO_CHAR(A.WRITE_DT,'yyyy-mm-dd hh24:mi:ss.ms') AS WRITE_DT_STR
+		     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'LOG_TYPE_CD' AND SCODE = A.LOG_TYPE_CD) AS LOG_TYPE_NM
+		     , A.LOGIN_ID
+		     , A.LOGIN_IP
+		  FROM MCC904 A
+		 WHERE 1=1
+		   AND COALESCE(A.LOGIN_IP, '') NOT IN ('0:0:0:0:0:0:0:1', '127.0.0.1', '')
+		   AND COALESCE(A.LOGIN_ID, '') != ''
+		   AND TO_CHAR(A.WRITE_DT, 'YYYYMMDD') = TO_CHAR(NOW(), 'YYYYMMDD')
+		   <if test="searchNotInterfaceYn != null and searchNotInterfaceYn != ''">
+		   AND COALESCE(A.INTERFACE_YN, '') != #{searchNotInterfaceYn}
+		   </if>
+		 ORDER BY A.WRITE_DT ASC
+		 LIMIT 10
+	</select>
+</mapper>

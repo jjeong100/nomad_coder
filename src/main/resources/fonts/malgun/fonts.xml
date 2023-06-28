@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<fontFamilies>
+<fontFamily name="맑은 고딕">
+<normal>fonts/malgun/MALGUN.TTF</normal>
+<bold>fonts/malgun/MALGUNBD.TTF</bold>
+<pdfEncoding>Identity-H</pdfEncoding>
+<pdfEmbedded>true</pdfEmbedded>
+<exportFonts>
+<export key="net.sf.jasperreports.html">'맑은 고딕','Malgun Gothic', Arial, sans-serif</export>
+<export key="net.sf.jasperreports.xhtml">'맑은 고딕','Malgun Gothic', Arial, sans-serif</export>
+</exportFonts>
+</fontFamily>
+</fontFamilies>

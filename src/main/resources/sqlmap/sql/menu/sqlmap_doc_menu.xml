@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="docMenu">
+    
+    <!-- ============================================================================================================================= -->
+    <!-- 수입검사성적서 : searchInFileList                                                                                                   -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchDocList" parameterType="org.rnt.doc.vo.DocVO" resultType="org.rnt.doc.vo.DocVO">
+		SELECT *
+		FROM (
+		    SELECT A.*
+		          <if test="sortCol != null">
+                  , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                  </if>
+                  <if test="sortCol == null">
+                  , ROW_NUMBER() OVER(ORDER BY WRITE_DT DESC) AS RNUM
+                  </if>
+		    FROM (
+		        SELECT FACTORY_CD
+                     , DOC_SEQ
+                     , DOC_NM
+                     , DOC_ORG_NM
+                     , DOC_TYPE_CD
+                     , DOC_FILE_PATH
+                     , DOC_BIGO
+                     , USE_YN
+                     , TO_CHAR(WRITE_DT, 'YYYY/MM/DD HH24:MI:SS') AS WRITE_DATE
+                     , WRITE_DT 
+                     , WRITE_ID
+                     , UPDATE_DT
+                     , UPDATE_ID
+                FROM MCC906 A
+                WHERE 1=1
+                  AND USE_YN = 'Y'
+                <if test="searchDocNm != null and searchDocNm != ''">
+                  AND DOC_NM LIKE '%' || #{searchDocNm} || '%'
+                </if>
+                <if test="searchDocTypeCd != null and searchDocTypeCd != ''">
+                  AND DOC_TYPE_CD = #{searchDocTypeCd}
+                </if>
+                <if test="searchFromDate != null and searchFromDate != ''">
+                  AND TO_CHAR(A.WRITE_DT, 'YYYYMMDD') >= #{searchFromDate}
+	            </if>
+	            <if test="searchToDate != null and searchToDate != ''">
+	              AND TO_CHAR(A.WRITE_DT, 'YYYYMMDD') <![CDATA[<=]]> #{searchToDate}
+	            </if>
+		    ) A
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+		</if>
+    </select>
+
+    <select id="searchDocListTotCnt" parameterType="org.rnt.doc.vo.DocVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+		FROM (
+		    SELECT A.*
+		          <if test="sortCol != null">
+                  , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                  </if>
+                  <if test="sortCol == null">
+                  , ROW_NUMBER() OVER(ORDER BY UPDATE_DT DESC) AS RNUM
+                  </if>
+		    FROM (
+		        SELECT FACTORY_CD
+                     , DOC_SEQ
+                     , DOC_NM
+                     , DOC_ORG_NM
+                     , DOC_TYPE_CD
+                     , DOC_FILE_PATH
+                     , DOC_BIGO
+                     , USE_YN
+                     , WRITE_DT
+                     , WRITE_ID
+                     , UPDATE_DT
+                     , UPDATE_ID
+                FROM MCC906 A
+                WHERE 1=1
+                  AND USE_YN = 'Y'
+                <if test="searchDocNm != null and searchDocNm != ''">
+                  AND DOC_NM LIKE '%' || #{searchDocNm} || '%'
+                </if>
+                <if test="searchDocTypeCd != null and searchDocTypeCd != ''">
+                  AND DOC_TYPE_CD = #{searchDocTypeCd}
+                </if>
+                <if test="searchFromDate != null and searchFromDate != ''">
+                  AND TO_CHAR(A.WRITE_DT, 'YYYYMMDD') >= #{searchFromDate}
+	            </if>
+	            <if test="searchToDate != null and searchToDate != ''">
+	              AND TO_CHAR(A.WRITE_DT, 'YYYYMMDD') <![CDATA[<=]]> #{searchToDate}
+	            </if>
+		    ) A
+		) A
+    </select>
+    
+    <select id="select" parameterType="org.rnt.doc.vo.DocVO" resultType="org.rnt.doc.vo.DocVO">
+    	SELECT FACTORY_CD
+             , DOC_SEQ
+             , DOC_NM
+             , DOC_ORG_NM
+             , DOC_TYPE_CD
+             , DOC_FILE_PATH
+             , DOC_BIGO
+             , USE_YN
+             , WRITE_DT
+             , WRITE_ID
+             , UPDATE_DT
+             , UPDATE_ID
+		  FROM MCC906 A
+		 WHERE 1=1 
+		   AND FACTORY_CD = #{factoryCd}
+		   AND DOC_SEQ = #{docSeq}
+	</select>
+	
+    <insert id="insert" parameterType="org.rnt.doc.vo.DocVO">
+		INSERT INTO MCC906
+		(
+			 FACTORY_CD
+			,DOC_SEQ
+			,DOC_NM
+			,DOC_ORG_NM
+			,DOC_TYPE_CD
+			,DOC_FILE_PATH
+			,DOC_BIGO
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,TABLE_SEQ_NEXTVAL('MCC906')
+			,#{docNm}
+			,#{docOrgNm}
+			,#{docTypeCd}
+			,#{docFilePath}
+			,#{docBigo}
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+	
+    <update id="delete" parameterType="org.rnt.doc.vo.DocVO">
+		UPDATE MCC906
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+		    ,USE_YN = 'N'
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND DOC_SEQ = #{docSeq}
+	</update>
+    
+        
+</mapper>

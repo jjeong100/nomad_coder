@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mwp012">
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.ItemInVO">
+        <selectKey keyProperty="iteminSeq" resultType="String" order="BEFORE">
+            SELECT TABLE_SEQ_NEXTVAL('MWP012') AS ITEMIN_SEQ
+        </selectKey>
+
+        INSERT INTO MWP012(
+                 FACTORY_CD
+                , ITEMIN_SEQ
+                , ITEMIN_DT
+                , MQC_SEQ
+                , PROD_SEQ
+                , WORKSHOP_CD
+                , ITEM_CD
+                , ITEM_IN_TYPE_CD
+                , INOK_QTY
+                , LOTID
+                , USE_YN
+                , WRITE_DT
+                , WRITE_ID
+                , UPDATE_DT
+                , UPDATE_ID
+        ) VALUES (
+                #{factoryCd}
+                , #{iteminSeq}
+                , REGEXP_REPLACE(#{iteminDt}, '[^0-9]', '', 'g')
+                , #{mqcSeq}
+                , #{prodSeq}
+                , #{workshopCd}
+                , #{itemCd}
+                , #{itemInTypeCd}
+                , #{inokQty}
+                , LOT_SEQ_NEXTVAL('IT')
+                , 'Y'
+                , NOW()
+                , #{writeId}
+                , NOW()
+                , #{updateId}
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.ItemInVO" resultType="org.rnt.com.entity.vo.ItemInVO">
+        SELECT A.FACTORY_CD
+             , A.ITEMIN_SEQ
+             , TO_CHAR(TO_TIMESTAMP(A.ITEMIN_DT,'YYYYMMDDHH24MISS'),'YYYY/MM/DD') AS ITEMIN_DT
+             , A.MQC_SEQ
+             , A.PROD_SEQ
+             , A.WORKSHOP_CD
+             , A.ITEM_CD
+             , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+             , A.ITEM_IN_TYPE_CD
+             , A.INOK_QTY
+             , A.LOTID
+             , A.USE_YN
+             , A.WRITE_DT
+             , A.WRITE_ID
+             , A.UPDATE_DT
+             , A.UPDATE_ID
+             , COALESCE((SELECT SUM(out_qty) FROM MWP015 WHERE lotid = A.lotid AND USE_YN = 'Y'), 0) AS OUT_QTY
+          FROM MWP012 A
+         WHERE 1=1
+           AND A.FACTORY_CD = #{factoryCd}
+           AND A.ITEMIN_SEQ = #{iteminSeq}
+    </select>
+
+    <select id="selectProdOrderInfo" parameterType="org.rnt.com.entity.vo.ItemInVO" resultType="org.rnt.com.entity.vo.ItemInVO">
+        SELECT PROD.FACTORY_CD
+             , PROD.PROD_SEQ
+             , PROD.PROD_PO_NO
+             , PROD.ITEM_CD
+             , QM.PROD_QM_NO
+             , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = PROD.ITEM_CD)   AS ITEM_NM
+             , PROD.PO_QTY
+             , TO_CHAR(QM.QM_CHECKDT::TIMESTAMP,'YYYY/MM/DD') AS QM_CHECKDT
+             , WORKACT.ACTOK_QTY
+             , QM.ACTOK_QTY AS QM_ACTOK_QTY
+             , COALESCE(ITEMIN.INOK_QTY, 0) AS INOK_QTY
+             , QM.ACTOK_QTY - COALESCE(ITEMIN.INOK_QTY, 0) AS STOCK_QTY
+          FROM MPO009 PROD
+               INNER JOIN MPO010 OPER ON OPER.PROD_SEQ = PROD.PROD_SEQ
+               						  AND OPER.LAST_OPER_YN = 'Y'
+               INNER JOIN MPO011 WORKACT ON WORKACT.PROD_SEQ = OPER.PROD_SEQ
+               							 AND WORKACT.OPER_CD = OPER.OPER_CD
+               INNER JOIN MQC001 QM ON QM.FACTORY_CD = WORKACT.FACTORY_CD
+                                        AND QM.PROD_SEQ = WORKACT.PROD_SEQ
+                                        AND QM.WORKACT_SEQ = WORKACT.WORKACT_SEQ
+                                        AND QM.MQC_SEQ = #{mqcSeq}
+               LEFT OUTER JOIN (SELECT PROD_SEQ
+               						 , MQC_SEQ
+               						 , SUM(INOK_QTY) AS INOK_QTY
+               					  FROM MWP012
+               					 GROUP BY PROD_SEQ, MQC_SEQ) ITEMIN ON ITEMIN.PROD_SEQ = QM.PROD_SEQ
+						             								AND ITEMIN.MQC_SEQ = QM.MQC_SEQ
+         WHERE 1=1
+           AND PROD.FACTORY_CD = #{factoryCd}
+           AND PROD.PROD_SEQ = #{prodSeq}
+    </select>
+
+    <select id="selectByLotId" parameterType="org.rnt.com.entity.vo.ItemInVO" resultType="org.rnt.com.entity.vo.ItemInVO">
+        SELECT A.FACTORY_CD
+             , A.ITEMIN_SEQ
+             , TO_CHAR(TO_TIMESTAMP(A.ITEMIN_DT,'YYYYMMDDHH24MISS'),'YYYY/MM/DD') AS ITEMIN_DT
+             , A.MQC_SEQ
+             , A.PROD_SEQ
+             , PROD.PROD_PO_NO
+             , A.ITEM_CD
+             , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+             , A.ITEM_IN_TYPE_CD
+             , A.LOTID
+             , A.INOK_QTY
+             , COALESCE(A.INOK_QTY,0) - (SELECT COALESCE(SUM(OUT_WAIT_QTY + OUT_QTY +DISUSE_QTY - OUT_CAN_QTY - MODIFY_QTY), 0)
+										   FROM (SELECT SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_WAIT' THEN OUT_QTY ELSE 0 END) AS OUT_WAIT_QTY
+												      , SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'OUT' THEN OUT_QTY ELSE 0 END) AS OUT_QTY
+												      , SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'DISUSE' THEN OUT_QTY ELSE 0 END) AS DISUSE_QTY
+												      , SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'OUT_CAN' THEN OUT_QTY ELSE 0 END) AS OUT_CAN_QTY
+												      , SUM(CASE WHEN ITEM_OUT_TYPE_CD = 'MODIFY' THEN OUT_QTY ELSE 0 END) AS MODIFY_QTY
+												   FROM MWP015
+												  WHERE LOTID = A.LOTID
+												  GROUP BY LOTID
+												  ) Z) AS STOCK_QTY
+             , A.USE_YN
+             , A.WRITE_DT
+             , A.WRITE_ID
+             , A.UPDATE_DT
+             , A.UPDATE_ID
+          FROM MWP012 A
+          	   INNER JOIN MCC016 ITEM ON ITEM.ITEM_CD = A.ITEM_CD
+          	   INNER JOIN MPO009 PROD ON PROD.PROD_SEQ = A.PROD_SEQ
+         WHERE 1=1
+           AND A.FACTORY_CD = #{factoryCd}
+           AND A.LOTID = #{lotid}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.ItemInVO">
+        UPDATE MWP012
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            <if test="iteminDt != null and iteminDt != ''">,ITEMIN_DT = REGEXP_REPLACE(#{iteminDt}, '[^0-9]', '', 'g')</if>
+            <if test="mqcSeq != null and mqcSeq != ''">,MQC_SEQ = #{mqcSeq}</if>
+            <if test="prodSeq != null and prodSeq != ''">,PROD_SEQ = #{prodSeq}</if>
+            <if test="itemCd != null and itemCd != ''">,ITEM_CD = #{itemCd}</if>
+            <if test="itemInTypeCd != null and itemInTypeCd != ''">,ITEM_IN_TYPE_CD = #{itemInTypeCd}</if>
+            <if test="inokQty != null and inokQty != ''">,INOK_QTY = #{inokQty}</if>
+            <if test="workshopCd != null and workshopCd != ''">,WORKSHOP_CD = #{workshopCd}</if>
+            <if test="lotid != null and lotid != ''">,LOTID = #{lotid}</if>
+            <if test="useYn != null">,USE_YN = #{useYn}</if>
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEMIN_SEQ = #{iteminSeq}
+    </update>
+
+    <update id="delete" parameterType="org.rnt.com.entity.vo.ItemInVO">
+        DELETE FROM MWP012
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND ITEMIN_SEQ = #{iteminSeq}
+    </update>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.ItemInVO" resultType="org.rnt.com.entity.vo.ItemInVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                  <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY UPDATE_DT DESC) AS RNUM
+                 </if>
+            FROM (
+                SELECT FACTORY_CD
+                     , ITEMIN_SEQ
+                     , TO_CHAR(TO_DATE(A.ITEMIN_DT,'YYYYMMDD'),'YYYY/MM/DD') AS ITEMIN_DT
+                     , MQC_SEQ
+                     , PROD_SEQ
+                     , ITEM_CD
+                     , (SELECT ITEM_NM FROM MCC016 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+                     , ITEM_IN_TYPE_CD
+                     , INOK_QTY
+                     , WORKSHOP_CD
+                     , (SELECT WORKSHOP_NM FROM MCC042 WHERE WORKSHOP_CD = A.WORKSHOP_CD) AS WORKSHOP_NM
+                     , LOTID
+                     , USE_YN
+                     , WRITE_DT
+                     , WRITE_ID
+                     , UPDATE_DT
+                     , UPDATE_ID
+                FROM MWP012 A
+                WHERE 1=1
+                  AND USE_YN = 'Y'
+                  <if test="searchMqcSeq != null and searchMqcSeq != ''">
+                    AND MQC_SEQ = #{searchMqcSeq}
+                  </if>
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.ItemInVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM MWP012
+        WHERE 1=1
+          AND USE_YN = 'Y'
+          <if test="searchMqcSeq != null and searchMqcSeq != ''">
+             AND MQC_SEQ = #{searchMqcSeq}
+          </if>
+    </select>
+
+
+    <select id="selectPopItemInList" parameterType="org.rnt.com.entity.vo.ItemInVO" resultType="org.rnt.com.entity.vo.ItemInVO">
+        SELECT *
+        FROM (
+            SELECT A.*
+                   <if test="sortCol != null">
+                   , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                   </if>
+                   <if test="sortCol == null">
+                   , ROW_NUMBER() OVER(ORDER BY A.UPDATE_DT DESC) AS RNUM
+                   </if>
+            FROM (
+                SELECT A.FACTORY_CD
+                     , B.ITEMIN_SEQ
+                     , TO_CHAR(TO_DATE(B.ITEMIN_DT,'YYYYMMDD'),'YYYY/MM/DD') AS ITEMIN_DT
+                     , A.PROD_SEQ
+                     , A.PROD_PO_NO
+                     , A.CUST_CD
+                     , (SELECT CUST_NM FROM MCC025 WHERE CUST_CD = A.CUST_CD) AS CUST_NM
+                     , A.ITEM_CD
+                     , (SELECT ITEM_NM FROM MCC015 WHERE ITEM_CD = A.ITEM_CD) AS ITEM_NM
+                     , B.ITEM_IN_TYPE_CD
+                     , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'ITEM_IN_TYPE_CD' AND SCODE = B.ITEM_IN_TYPE_CD) AS ITEM_IN_TYPE_NM
+                     , A.PO_QTY
+                     , B.INOK_QTY
+                     , B.BULK_BOX_BY_QTY
+                     , B.WORKSHOP_CD
+                     , (SELECT WORKSHOP_NM FROM MCC042 WHERE WORKSHOP_CD = B.WORKSHOP_CD) AS WORKSHOP_NM
+                     , B.LOTID
+                     , B.MAT_LOTID
+                     , B.USE_YN
+                     , B.WRITE_DT
+                     , B.WRITE_ID
+                     , B.UPDATE_DT
+                     , B.UPDATE_ID
+                FROM MPO009 A INNER JOIN MWP012 B ON (A.FACTORY_CD = B.FACTORY_CD AND A.PROD_SEQ = B.PROD_SEQ)
+                WHERE 1=1
+                  AND A.USE_YN = 'Y'
+                  <if test="searchType != null and searchType != ''">
+                      <if test="searchType == 'NIN'">
+                          <if test="searchFromQmCheckdt != null and searchFromQmCheckdt != '' and searchToQmCheckdt != null  and searchToQmCheckdt != ''">
+                              AND A.PO_CALLDT BETWEEN #{searchFromQmCheckdt} AND #{searchToQmCheckdt}
+                          </if>
+                      </if>
+                      <if test="searchType == 'IN'">
+                          <if test="searchFromIteminDt != null and searchFromIteminDt != '' and searchToIteminDt != null  and searchToIteminDt != ''">
+                              AND B.ITEMIN_DT BETWEEN #{searchFromIteminDt} AND #{searchToIteminDt}
+                          </if>
+                      </if>
+                  </if>
+                  <if test="searchProdPoNo != null and searchProdPoNo != ''">
+                      AND A.PROD_PO_NO LIKE '%'||#{searchProdPoNo}||'%'
+                  </if>
+                  <if test="searchItemNm != null and searchItemNm != ''">
+                      AND A.ITEM_CD IN (SELECT ITEM_CD FROM MCC016 WHERE ITEM_NM LIKE '%'||#{searchItemCd}||'%'
+                  </if>
+                  <if test="searchItemCd != null and searchItemCd != ''">
+                  	AND A.ITEM_CD = #{searchItemCd}
+                  </if>
+                  <if test="searchItemNm != null and searchItemNm != ''">
+                      AND A.ITEM_CD IN (SELECT ITEM_CD FROM MCC016 WHERE ITEM_NM LIKE '%'||#{searchItemNm}||'%')
+                  </if>
+                  <if test="searchCustNm != null and searchCustNm != ''">
+                      AND A.ITEM_CD IN (SELECT ITEM_CD FROM MCC016 WHERE CUST_CD IN (SELECT CUST_CD FROM MCC025 WHERE CUST_NM LIKE '%'||#{searchCustNm}||'%'))
+                  </if>
+            ) A
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]>
+        </if>
+    </select>
+
+</mapper>

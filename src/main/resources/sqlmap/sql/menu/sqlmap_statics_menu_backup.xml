@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="staticsMenu_backup">
+    <!-- ============================================================================================================================= -->
+    <!-- 설비실적 : searchEquipStaticsList                                                                                                          -->
+    <!-- ============================================================================================================================= -->
+    <select id="searchEquipStaticsList" parameterType="org.rnt.statics.vo.EquipStaticsInVO" resultType="org.rnt.statics.vo.EquipStaticsOutVO">
+         SELECT *
+            FROM (SELECT S1.IDX || '월' AS EQUIP_CD 
+              , COALESCE(S1.VALUE) AS BASE_YEAR_RATE
+              , COALESCE(S2.VALUE) AS COMP_YEAR_RATE
+              , ROW_NUMBER() OVER(ORDER BY S1.IDX ASC) AS RNUM
+            FROM
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, ${searchBaseYear} AS YEAR, 'EQUIP'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = ${searchBaseYear}
+              AND A.TYPE = 'EQUIP') S1
+
+            INNER JOIN
+
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, ${searchCompYear} AS YEAR, 'EQUIP'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = ${searchCompYear}
+              AND A.TYPE = 'EQUIP') S2
+            ON (S1.IDX = S2.IDX)) A
+            
+       <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+    
+     <select id="searchEquipStaticsListTotCnt" parameterType="org.rnt.statics.vo.EquipStaticsInVO" resultType="java.lang.Integer">
+     SELECT COUNT(*) AS TOT_CNT 
+       FROM TEMP_01
+      WHERE TYPE = 'EQUIP'
+    </select>
+    
+    <select id="searchEquipStaticsList_backup" parameterType="org.rnt.statics.vo.EquipStaticsInVO" resultType="org.rnt.statics.vo.EquipStaticsOutVO">
+         SELECT *
+            FROM (
+            SELECT S1.IDX || '월' AS EQUIP_CD 
+            , S1.FAC_OPERATION_RATE AS BASE_YEAR_RATE
+            , S2.FAC_OPERATION_RATE AS COMP_YEAR_RATE
+            , ROW_NUMBER() OVER(ORDER BY S1.IDX ASC) AS RNUM
+        FROM
+        (SELECT A.IDX
+        --      , B.EQUIP_SEQ
+             , B.FAC_OPERATION_RATE
+            FROM 
+            (SELECT GENERATE_SERIES(1, 12) AS IDX) A
+            LEFT OUTER JOIN (SELECT B.EQUIP_SEQ
+                 , A.MONTH
+                 , ROUND(AVG(B.FAC_OPERATION_RATE),2) AS FAC_OPERATION_RATE
+            FROM KPI001 A
+            INNER JOIN KPI002 B
+            ON (A.KPI_SEQ = B.KPI_SEQ
+               AND SUBSTR(B.PO_CALLDT,1,4)::NUMERIC = A.YEAR
+               AND SUBSTR(B.PO_CALLDT,5,2)::NUMERIC = A.MONTH
+            )
+            WHERE A.YEAR = ${searchBaseYear}
+            GROUP BY B.EQUIP_SEQ, A.MONTH) B
+            ON (A.IDX = B.MONTH)) S1
+            
+            INNER JOIN 
+            
+            (SELECT A.IDX
+            --      , B.EQUIP_SEQ
+                 , B.FAC_OPERATION_RATE
+            FROM 
+            (SELECT GENERATE_SERIES(1, 12) AS IDX) A
+            LEFT OUTER JOIN (SELECT B.EQUIP_SEQ
+                 , A.MONTH
+                 , ROUND(AVG(B.FAC_OPERATION_RATE),2) AS FAC_OPERATION_RATE
+            FROM KPI001 A
+            INNER JOIN KPI002 B
+            ON (A.KPI_SEQ = B.KPI_SEQ
+              AND SUBSTR(B.PO_CALLDT,1,4)::NUMERIC = A.YEAR
+              AND SUBSTR(B.PO_CALLDT,5,2)::NUMERIC = A.MONTH
+            )
+            WHERE A.YEAR = ${searchCompYear}
+            GROUP BY B.EQUIP_SEQ, A.MONTH) B
+            ON (A.IDX = B.MONTH)) S2
+            ON (S1.IDX = S2.IDX)
+       ) A
+       <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+    
+    <select id="searchEquipStaticsListTotCnt_backup" parameterType="org.rnt.statics.vo.EquipStaticsInVO" resultType="java.lang.Integer">
+         SELECT COUNT(*) AS TOT_CNT
+            FROM (
+            SELECT GENERATE_SERIES(1, 12) AS IDX
+            ) A
+    </select>
+
+    <select id="selectEquipTotStatics" parameterType="org.rnt.statics.vo.EquipStaticsInVO" resultType="org.rnt.statics.vo.EquipStaticsOutVO2">
+        SELECT NULL AS EQUIP_SEQ
+           , ROUND(SUM(BASE_YEAR_RATE)) AS BASE_YEAR_TOT_RATE
+           , ROUND(SUM(COMP_YEAR_RATE)) AS COMP_YEAR_TOT_RATE
+        FROM 
+        (SELECT YEAR
+          , AVG(VALUE) AS BASE_YEAR_RATE
+          , NULL AS COMP_YEAR_RATE
+        FROM TEMP_01 
+        WHERE TYPE = 'EQUIP'
+          AND YEAR = ${searchBaseYear}
+        GROUP BY YEAR
+        
+        UNION ALL
+        
+        SELECT YEAR
+          , NULL AS BASE_YEAR_RATE
+          , AVG(VALUE) AS COMP_YEAR_RATE
+        FROM TEMP_01
+        WHERE TYPE = 'EQUIP'
+          AND YEAR = ${searchCompYear}
+          GROUP BY YEAR) A
+    </select>
+    
+    <select id="selectEquipTotStatics_backup" parameterType="org.rnt.statics.vo.EquipStaticsInVO" resultType="org.rnt.statics.vo.EquipStaticsOutVO2">
+        SELECT S1.EQUIP_SEQ
+                , COALESCE(S1.FAC_OPERATION_RATE,0) AS BASE_YEAR_TOT_RATE
+                , COALESCE(S2.FAC_OPERATION_RATE,0) AS COMP_YEAR_TOT_RATE
+            FROM
+            (SELECT B.EQUIP_SEQ
+                 , ROUND(AVG(B.FAC_OPERATION_RATE),2) AS FAC_OPERATION_RATE
+            FROM KPI001 A
+            INNER JOIN KPI002 B
+           ON (A.KPI_SEQ = B.KPI_SEQ
+              AND SUBSTR(B.PO_CALLDT,1,4)::NUMERIC = A.YEAR
+              AND SUBSTR(B.PO_CALLDT,5,2)::NUMERIC = A.MONTH
+            )
+            WHERE A.YEAR = ${searchBaseYear}
+            GROUP BY B.EQUIP_SEQ) S1
+            LEFT OUTER JOIN
+            (SELECT B.EQUIP_SEQ
+                 , ROUND(AVG(B.FAC_OPERATION_RATE),2) AS FAC_OPERATION_RATE
+            FROM KPI001 A
+            INNER JOIN KPI002 B
+            ON (A.KPI_SEQ = B.KPI_SEQ
+              AND SUBSTR(B.PO_CALLDT,1,4)::NUMERIC = A.YEAR
+              AND SUBSTR(B.PO_CALLDT,5,2)::NUMERIC = A.MONTH
+            )
+             WHERE A.YEAR = ${searchCompYear}
+            GROUP BY B.EQUIP_SEQ) S2
+            ON (S1.EQUIP_SEQ = S2.EQUIP_SEQ)
+    </select>
+
+    <select id="searchQualityStaticsList" parameterType="org.rnt.statics.vo.QualityStaticsInVO" resultType="org.rnt.statics.vo.QualityStaticsOutVO">
+        SELECT S1.IDX || '월' AS MONTH
+            , COALESCE(S1.STOCK,0) AS BASE_YEAR_RATE
+            , COALESCE(S2.STOCK,0) AS COMP_YEAR_RATE
+        FROM
+        (SELECT A.IDX
+             , B.YEAR
+             , B.MONTH 
+             , B.PRE_MONTH_STOCK - (SELECT SUM(FINISHED_QTY) + SUM(FAIL_QTY) FROM KPI002 WHERE KPI_SEQ = B.KPI_SEQ) AS STOCK 
+        FROM (SELECT GENERATE_SERIES(1, 12) AS IDX, #{searchBaseYear}::NUMERIC AS YEAR) A
+        LEFT OUTER JOIN KPI001 B
+        ON (A.IDX = B.MONTH
+        AND A.YEAR = B.YEAR)
+        WHERE A.YEAR = #{searchBaseYear}::NUMERIC) S1
+        
+        INNER JOIN
+
+        (SELECT A.IDX
+             , B.YEAR
+             , B.MONTH 
+             , B.PRE_MONTH_STOCK - (SELECT SUM(FINISHED_QTY) + SUM(FAIL_QTY) FROM KPI002 WHERE KPI_SEQ = B.KPI_SEQ) AS STOCK 
+        FROM (SELECT GENERATE_SERIES(1, 12) AS IDX, #{searchCompYear}::NUMERIC AS YEAR) A
+        LEFT OUTER JOIN KPI001 B
+        ON (A.IDX = B.MONTH
+        AND A.YEAR = B.YEAR)
+        WHERE A.YEAR = #{searchCompYear}::NUMERIC) S2
+        ON (S1.IDX = S2.IDX)
+    </select>
+
+    <select id="searchDeliveryStaticsList" parameterType="org.rnt.statics.vo.DeliveryStaticsInVO" resultType="org.rnt.statics.vo.DeliveryStaticsOutVO">
+         SELECT S1.IDX || '월' AS MONTH 
+              , COALESCE(S1.VALUE) AS BASE_YEAR_RATE
+              , COALESCE(S2.VALUE) AS COMP_YEAR_RATE
+            FROM
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, #{searchBaseYear}::NUMERIC AS YEAR, 'DELIVERY'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = #{searchBaseYear}::NUMERIC
+              AND A.TYPE = 'DELIVERY') S1
+            
+            INNER JOIN
+            
+            (SELECT A.IDX
+                  , B.YEAR
+                  , B.MONTH
+                  , B.DAY
+                  , B.TITLE
+                  , B.VALUE
+            FROM
+            (SELECT GENERATE_SERIES(1, 12) AS IDX, #{searchCompYear}::NUMERIC AS YEAR, 'DELIVERY'::VARCHAR AS TYPE) A
+            LEFT OUTER JOIN TEMP_01 B
+            ON (A.YEAR   = B.YEAR
+              AND A.IDX  = B.MONTH
+              AND A.TYPE = B.TYPE)
+            WHERE A.YEAR = #{searchCompYear}::NUMERIC
+              AND A.TYPE = 'DELIVERY') S2
+            ON (S1.IDX = S2.IDX)
+    </select>
+    
+    <select id="searchDeliveryStaticsList_backup" parameterType="org.rnt.statics.vo.DeliveryStaticsInVO" resultType="org.rnt.statics.vo.DeliveryStaticsOutVO">
+         SELECT *
+            FROM (
+            SELECT S1.IDX || '월' AS MONTH 
+            , COALESCE(S1.STOCK,0) AS BASE_YEAR_RATE
+            , COALESCE(S2.STOCK,0) AS COMP_YEAR_RATE
+            , ROW_NUMBER() OVER(ORDER BY S1.IDX ASC) AS RNUM
+        FROM
+        (SELECT A.IDX
+        --      , B.EQUIP_SEQ
+             , ROUND(B.STOCK/3) AS STOCK
+            FROM 
+            (SELECT GENERATE_SERIES(1, 12) AS IDX) A
+            LEFT OUTER JOIN (SELECT B.EQUIP_SEQ
+                 , A.MONTH
+                 , ROUND(SUM(SUBSTR(B.PO_CALLDT,7,2)::NUMERIC - SUBSTR(B.DELIVERY_DATE,7,2)::NUMERIC)) AS STOCK 
+            FROM KPI001 A
+            INNER JOIN KPI002 B
+            ON (A.KPI_SEQ = B.KPI_SEQ
+               AND SUBSTR(B.PO_CALLDT,1,4)::NUMERIC = A.YEAR
+               AND SUBSTR(B.PO_CALLDT,5,2)::NUMERIC = A.MONTH
+            )
+            WHERE A.YEAR = #{searchBaseYear}::NUMERIC
+            GROUP BY B.EQUIP_SEQ, A.MONTH) B
+            ON (A.IDX = B.MONTH)) S1
+
+            INNER JOIN 
+
+            (SELECT A.IDX
+            --      , B.EQUIP_SEQ
+                 , ROUND(B.STOCK/1) AS STOCK
+            FROM 
+            (SELECT GENERATE_SERIES(1, 12) AS IDX) A
+            LEFT OUTER JOIN (SELECT B.EQUIP_SEQ
+                 , A.MONTH
+                 , ROUND(SUM(SUBSTR(B.PO_CALLDT,7,2)::NUMERIC - SUBSTR(B.DELIVERY_DATE,7,2)::NUMERIC)) AS STOCK 
+            FROM KPI001 A
+            INNER JOIN KPI002 B
+            ON (A.KPI_SEQ = B.KPI_SEQ
+               AND SUBSTR(B.PO_CALLDT,1,4)::NUMERIC = A.YEAR
+               AND SUBSTR(B.PO_CALLDT,5,2)::NUMERIC = A.MONTH
+            )
+            WHERE A.YEAR = #{searchCompYear}::NUMERIC
+            GROUP BY B.EQUIP_SEQ, A.MONTH) B
+            ON (A.IDX = B.MONTH)) S2
+            ON (S1.IDX = S2.IDX)
+       ) A
+    </select>
+</mapper>

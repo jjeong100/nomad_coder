@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc009">
+
+    <insert id="insert" parameterType="org.rnt.com.entity.vo.CalanderVO">
+        INSERT INTO MCC009
+        (
+             FACTORY_CD
+            ,YYYMMDD
+            ,DAY_NM
+            ,YWEEK_CD
+            ,MWEEK_CD
+            ,WORK_YN
+            ,BIGO
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        ) VALUES (
+             #{factoryCd}
+            ,#{yyymmdd}
+            ,#{dayNm}
+            ,#{yweekCd}
+            ,#{mweekCd}
+            ,#{workYn}
+            ,#{bigo}
+            ,'Y'
+            ,now()
+            ,#{writeId}
+            ,now()
+            ,#{updateId}
+        )
+    </insert>
+
+    <select id="select" parameterType="org.rnt.com.entity.vo.CalanderVO" resultType="org.rnt.com.entity.vo.CalanderVO">
+        SELECT
+             FACTORY_CD
+            ,YYYMMDD
+            ,DAY_NM
+            ,YWEEK_CD
+            ,MWEEK_CD
+            ,WORK_YN
+            ,BIGO
+            ,USE_YN
+            ,WRITE_DT
+            ,WRITE_ID
+            ,UPDATE_DT
+            ,UPDATE_ID
+        FROM MCC009 A
+        WHERE 1=1 
+          AND FACTORY_CD = #{factoryCd}
+          AND YYYMMDD    = #{yyymmdd}
+    </select>
+
+    <update id="update" parameterType="org.rnt.com.entity.vo.CalanderVO">
+        UPDATE MCC009
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            <if test="dayNm != null">,DAY_NM = #{dayNm}</if>
+            <if test="yweekCd != null">,YWEEK_CD = #{yweekCd}</if>
+            <if test="mweekCd != null">,MWEEK_CD = #{mweekCd}</if>
+            <if test="workYn != null">,WORK_YN = #{workYn}</if>
+            <if test="bigo != null">,BIGO = #{bigo}</if>
+            <if test="useYn != null">,USE_YN = #{useYn}</if>
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND YYYMMDD    = #{yyymmdd}
+    </update>
+
+    <update id="delete" parameterType="org.rnt.com.entity.vo.CalanderVO">
+        UPDATE MCC009
+        SET  UPDATE_DT = NOW()
+            ,UPDATE_ID = #{updateId}
+            ,USE_YN = 'N'
+        WHERE 1=1
+          AND FACTORY_CD = #{factoryCd}
+          AND YYYMMDD = #{yyymmdd}
+    </update>
+
+    <select id="searchList" parameterType="org.rnt.com.entity.vo.CalanderVO" resultType="org.rnt.com.entity.vo.CalanderVO">
+        SELECT *
+        FROM (
+            SELECT FACTORY_CD
+                 , TO_CHAR(TO_DATE(YYYMMDD,'YYYYMMDD'),'YYYY/MM/DD') AS YYYMMDD
+                 , DAY_NM
+                 , TO_CHAR(TO_DATE(YYYMMDD,'YYYYMMDD'),'DD')::INT AS DAY
+                 , YWEEK_CD
+                 , MWEEK_CD
+                 , WORK_YN
+                 , BIGO
+                 , USE_YN
+                 , WRITE_DT
+                 , WRITE_ID
+                 , UPDATE_DT
+                 , UPDATE_ID
+                 <if test="sortCol != null">
+                 , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+                 </if>
+                 <if test="sortCol == null">
+                 , ROW_NUMBER() OVER(ORDER BY UPDATE_DT DESC) AS RNUM
+                 </if>
+            FROM MCC009 A
+            WHERE 1=1
+              AND USE_YN = 'Y'
+              AND SUBSTR(YYYMMDD,1,6) = #{searchFromDate}
+              <if test="dayNm != null and dayNm != ''">
+                  AND DAY_NM = #{dayNm}
+              </if>
+        ) A
+        <if test="isPaging">
+            <![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+        </if>
+    </select>
+
+    <select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.CalanderVO" resultType="java.lang.Integer">
+        SELECT COUNT(*) AS TOT_CNT
+        FROM MCC009
+        WHERE 1=1
+          AND USE_YN = 'Y'
+          <if test="dayNm != null and dayNm != ''">
+              AND DAY_NM = #{dayNm}
+          </if>
+    </select>
+</mapper>

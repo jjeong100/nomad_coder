@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mqc002">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.FinishQmBadVO">
+		INSERT INTO MQC002(
+				FACTORY_CD
+				, MQC_SEQ
+				, MQC_BAD_SEQ
+				, BAD_CD
+				, BAD_QTY
+				, USE_YN
+				, WRITE_DT
+				, WRITE_ID
+				, UPDATE_DT
+				, UPDATE_ID
+		) VALUES (
+				#{factoryCd}
+				, #{mqcSeq}
+				, TABLE_SEQ_NEXTVAL('MQC002')
+				, #{badCd}
+				, CAST(REGEXP_REPLACE(#{badQty}, '[^0-9]', '', 'g') AS NUMERIC)
+				, 'Y'
+				, NOW()
+				, #{writeId}
+				, NOW()
+				, #{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.FinishQmBadVO" resultType="org.rnt.com.entity.vo.FinishQmBadVO">
+		SELECT A.FACTORY_CD
+			 , A.MQC_SEQ
+			 , A.MQC_BAD_SEQ
+			 , A.BAD_CD
+			 , A.BAD_QTY
+			 , A.USE_YN
+			 , A.WRITE_DT
+			 , A.WRITE_ID
+			 , A.UPDATE_DT
+			 , A.UPDATE_ID
+		  FROM MQC002 A
+		 WHERE A.FACTORY_CD		= #{factoryCd}
+		   AND A.MQC_SEQ		= #{mqcSeq}
+		   AND A.MQC_BAD_SEQ	= #{mqcBadSeq}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.FinishQmBadVO">
+		UPDATE MQC002
+		   SET UPDATE_DT = NOW()
+  		     , UPDATE_ID = #{updateId}
+  		     <if test="badCd != null and badCd != ''">,BAD_CD = #{badCd}</if>
+			 <if test="badQty != null and badQty != ''">,BAD_QTY = CAST(REGEXP_REPLACE(#{badQty}, '[^0-9]', '', 'g') AS NUMERIC)</if>
+			 <if test="useYn != null and useYn != ''">,USE_YN = #{useYn}</if>
+		 WHERE FACTORY_CD		= #{factoryCd}
+		   AND MQC_SEQ		= #{mqcSeq}
+		   AND MQC_BAD_SEQ	= #{mqcBadSeq}
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.FinishQmBadVO">
+		DELETE FROM MQC002
+		WHERE 1=1
+		  AND FACTORY_CD 	= #{factoryCd}
+		  AND MQC_SEQ 		= #{mqcSeq}
+		  AND MQC_BAD_SEQ	= #{mqcBadSeq}
+	</update>
+	
+	<select id="selectList" parameterType="org.rnt.com.entity.vo.FinishQmBadVO" resultType="org.rnt.com.entity.vo.FinishQmBadVO">
+		SELECT A.FACTORY_CD
+			 , A.MQC_SEQ
+			 , A.MQC_BAD_SEQ
+			 , A.BAD_CD
+			 , (SELECT CODE_NM FROM MCC001 WHERE BCODE = 'BAD_CD' AND SCODE = A.BAD_CD) AS BAD_NM
+			 , A.BAD_QTY
+			 , A.USE_YN
+			 , A.WRITE_DT
+			 , A.WRITE_ID
+			 , A.UPDATE_DT
+			 , A.UPDATE_ID
+		  FROM MQC002 A
+		 WHERE A.FACTORY_CD		= #{factoryCd}
+		   AND A.MQC_SEQ		= #{mqcSeq}
+	</select>
+	
+	<update id="updateActbadQty" parameterType="org.rnt.com.entity.vo.FinishQmBadVO">
+		UPDATE MQC001
+		   SET UPDATE_DT = NOW()
+  		     , UPDATE_ID = #{updateId}
+  		     , ACTBAD_QTY = COALESCE((SELECT SUM(BAD_QTY) FROM MQC002 WHERE MQC_SEQ = #{mqcSeq}), 0)
+		 WHERE FACTORY_CD	= #{factoryCd}
+		   AND MQC_SEQ		= #{mqcSeq}
+	</update>
+	
+</mapper>

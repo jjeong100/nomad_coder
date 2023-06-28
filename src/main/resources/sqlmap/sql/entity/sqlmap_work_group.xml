@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc023">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.WorkGroupVO">
+		INSERT INTO MCC023
+		(
+			 FACTORY_CD
+			,WORK_CD
+			,WORK_NM
+			,START_WRTM
+			,END_WRTM
+			,FOOD_WRTM
+			,IDLE_WRTM
+			,CHANGE_WRTM
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{factoryCd}
+			,#{workCd}
+			,#{workNm}
+			,#{startWrtm}
+			,#{endWrtm}
+			,#{foodWrtm}
+			,#{idleWrtm}
+			,#{changeWrtm}
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.WorkGroupVO" resultType="org.rnt.com.entity.vo.WorkGroupVO">
+		SELECT
+			 FACTORY_CD
+			,WORK_CD
+			,WORK_NM
+			,START_WRTM
+			,END_WRTM
+			,FOOD_WRTM
+			,IDLE_WRTM
+			,CHANGE_WRTM
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		FROM MCC023 A
+		WHERE 1=1 
+		  AND FACTORY_CD = #{factoryCd}
+		  AND WORK_CD = #{workCd}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.WorkGroupVO">
+		UPDATE MCC023
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="workNm != null">,WORK_NM = #{workNm}</if>
+			<if test="startWrtm != null">,START_WRTM = #{startWrtm}</if>
+			<if test="endWrtm != null">,END_WRTM = #{endWrtm}</if>
+			<if test="foodWrtm != null">,FOOD_WRTM = #{foodWrtm}</if>
+			<if test="idleWrtm != null">,IDLE_WRTM = #{idleWrtm}</if>
+			<if test="changeWrtm != null">,CHANGE_WRTM = #{changeWrtm}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND WORK_CD = #{workCd}
+	
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.WorkGroupVO">
+		UPDATE MCC023
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+		    ,USE_YN = 'N'
+		WHERE 1=1
+		  AND FACTORY_CD = #{factoryCd}
+		  AND WORK_CD = #{workCd}
+	</update>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.WorkGroupVO" resultType="org.rnt.com.entity.vo.WorkGroupVO">
+		SELECT *
+		FROM (
+			SELECT FACTORY_CD
+			     , WORK_CD
+			     , WORK_NM
+			     , START_WRTM
+			     , END_WRTM
+			     , FOOD_WRTM
+			     , IDLE_WRTM
+			     , CHANGE_WRTM
+			     , USE_YN
+			     , WRITE_DT
+			     , WRITE_ID
+			     , UPDATE_DT
+			     , UPDATE_ID
+			     <if test="sortCol != null">
+			     , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			     </if>
+			     <if test="sortCol == null">
+			     , ROW_NUMBER() OVER(ORDER BY UPDATE_DT DESC) AS RNUM
+			     </if>
+			FROM MCC023 A
+			WHERE 1=1
+			  AND USE_YN = 'Y'
+			  <if test="searchWorkNm != null and searchWorkNm != ''">
+				  AND WORK_NM LIKE '%'||#{searchWorkNm}||'%'
+			  </if>
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+		</if>
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.WorkGroupVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MCC023
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+		  <if test="searchWorkNm != null and searchWorkNm != ''">
+			  AND WORK_NM LIKE '%'||#{searchWorkNm}||'%'
+		  </if>
+	</select>
+</mapper>

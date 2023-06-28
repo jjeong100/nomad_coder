@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mcc901">
+
+	<insert id="insert" parameterType="org.rnt.com.entity.vo.MenuVO">
+		INSERT INTO MCC901
+		(
+			 MENU_ID
+			,MENU_NM
+			,PAGE_URL
+			,MENU_LVL
+			,SORT_ORD
+			,UP_MENU_ID
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		) VALUES (
+			 #{menuId}
+			,#{menuNm}
+			,#{pageUrl}
+			,#{menuLvl}
+			,#{sortOrd}
+			,#{upMenuId}
+			,'Y'
+			,now()
+			,#{writeId}
+			,now()
+			,#{updateId}
+		)
+	</insert>
+
+	<select id="select" parameterType="org.rnt.com.entity.vo.MenuVO" resultType="org.rnt.com.entity.vo.MenuVO">
+		SELECT
+			 MENU_ID
+			,MENU_NM
+			,PAGE_URL
+			,MENU_LVL
+			,SORT_ORD
+			,UP_MENU_ID
+			,USE_YN
+			,WRITE_DT
+			,WRITE_ID
+			,UPDATE_DT
+			,UPDATE_ID
+		FROM MCC901 A
+		WHERE 1=1 
+		  AND MENU_ID = #{menuId}
+	</select>
+
+	<update id="update" parameterType="org.rnt.com.entity.vo.MenuVO">
+		UPDATE MCC901
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+			<if test="menuNm != null">,MENU_NM = #{menuNm}</if>
+			<if test="pageUrl != null">,PAGE_URL = #{pageUrl}</if>
+			<if test="menuLvl != null">,MENU_LVL = #{menuLvl}</if>
+			<if test="sortOrd != null">,SORT_ORD = #{sortOrd}</if>
+			<if test="upMenuId != null">,UP_MENU_ID = #{upMenuId}</if>
+			<if test="useYn != null">,USE_YN = #{useYn}</if>
+		WHERE 1=1
+		  AND MENU_ID = #{menuId}
+	
+	</update>
+
+	<update id="delete" parameterType="org.rnt.com.entity.vo.MenuVO">
+		UPDATE MCC901
+		SET  UPDATE_DT = NOW()
+		    ,UPDATE_ID = #{updateId}
+		    ,USE_YN = 'N'
+		WHERE 1=1
+		  AND MENU_ID = #{menuId}
+	</update>
+
+	<select id="searchList" parameterType="org.rnt.com.entity.vo.MenuVO" resultType="org.rnt.com.entity.vo.MenuVO">
+		SELECT *
+		FROM (
+			SELECT MENU_ID
+			     , MENU_NM
+			     , PAGE_URL
+			     , MENU_LVL
+			     , SORT_ORD
+			     , UP_MENU_ID
+			     , USE_YN
+			     , WRITE_DT
+			     , WRITE_ID
+			     , UPDATE_DT
+			     , UPDATE_ID
+			     <if test="sortCol != null">
+			     , ROW_NUMBER() OVER(ORDER BY ${sortCol} ${sortType} NULLS LAST) AS RNUM
+			     </if>
+			     <if test="sortCol == null">
+			     , ROW_NUMBER() OVER(ORDER BY MENU_LVL ASC, SORT_ORD ASC) AS RNUM
+			     </if>
+			FROM MCC901 A
+			WHERE 1=1
+			  AND USE_YN = 'Y'
+			  <if test="levelCd != null and levelCd != ''"> AND MENU_ID IN (SELECT MENU_ID FROM MCC902 WHERE LEVEL_CD = #{levelCd})</if>
+		) A
+		<if test="isPaging">
+			<![CDATA[ WHERE RNUM > #{firstIndex} AND RNUM <= #{lastIndex} ]]> 
+		</if>
+	</select>
+
+	<select id="searchListTotCnt" parameterType="org.rnt.com.entity.vo.MenuVO" resultType="java.lang.Integer">
+		SELECT COUNT(*) AS TOT_CNT
+		FROM MCC901
+		WHERE 1=1
+		  AND USE_YN = 'Y'
+		  <if test="levelCd != null and levelCd != ''"> AND MENU_ID IN (SELECT MENU_ID FROM MCC902 WHERE LEVEL_CD = #{levelCd})</if>
+	</select>
+</mapper>
