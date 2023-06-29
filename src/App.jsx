@@ -1,5 +1,6 @@
+// App.jsx
 
-import React, {useMemo} from 'react';
+import { useMemo } from "react";
 import "./styles.css";
 import faker from "faker/locale/ko";
 import Table from "./Table";
